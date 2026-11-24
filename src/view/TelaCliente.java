@@ -1,9 +1,11 @@
 package view;
 
 import controller.ClienteController;
+import exception.CampoInvalidoException;
+import exception.ClienteNaoEncontradoException;
 import exception.NenhumaLinhaSelecionadaException;
+import exception.PersistenciaException;
 import model.Cliente;
-import service.ClienteService;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -29,7 +31,6 @@ public class TelaCliente extends JFrame {
     private JButton botaoAtualizar;
     private JButton botaoExcluir;
     private JButton botaoLimparCampos;
-
     private JButton botaoFiltrar;
     private JButton botaoLimparFiltros;
     private JButton botaoVoltar;
@@ -39,18 +40,15 @@ public class TelaCliente extends JFrame {
 
     private JLabel labelTotalClientes;
 
-    public TelaCliente(ClienteService clienteService) {
+    public TelaCliente(ClienteController controller) {
 
-        this.controller = new ClienteController(
-                clienteService, this
-        );
+        this.controller = controller;
 
         configurarJanela();
         inicializarComponentes();
         montarLayout();
         configurarEventos();
-
-        controller.carregarClientes();
+        carregarTabela();
     }
 
     // ================= JANELA =================
@@ -84,22 +82,15 @@ public class TelaCliente extends JFrame {
 
         botaoFiltrar = new JButton("Filtrar");
         botaoLimparFiltros = new JButton("Limpar filtros");
-
         botaoVoltar = new JButton("Voltar");
 
         modeloTabela = new DefaultTableModel(
                 new Object[]{
-                        "ID",
-                        "Nome",
-                        "Sobrenome",
-                        "Telefone"
-                },
-                0
+                        "ID", "Nome", "Sobrenome", "Telefone"
+                }, 0
         ) {
             @Override
-            public boolean isCellEditable(
-                    int row, int column) {
-
+            public boolean isCellEditable(int row, int column) {
                 return false;
             }
         };
@@ -219,10 +210,7 @@ public class TelaCliente extends JFrame {
         JPanel painelLateral = new JPanel();
 
         painelLateral.setLayout(
-                new BoxLayout(
-                        painelLateral,
-                        BoxLayout.Y_AXIS
-                )
+                new BoxLayout(painelLateral, BoxLayout.Y_AXIS)
         );
 
         painelLateral.setPreferredSize(
@@ -310,11 +298,11 @@ public class TelaCliente extends JFrame {
                 campoFiltroTelefone, 1
         );
 
-        JPanel painelBotoesFiltro =
+        JPanel painelBotoes =
                 new JPanel(new GridLayout(1, 2, 8, 0));
 
-        painelBotoesFiltro.add(botaoFiltrar);
-        painelBotoesFiltro.add(botaoLimparFiltros);
+        painelBotoes.add(botaoFiltrar);
+        painelBotoes.add(botaoLimparFiltros);
 
         gbc.gridx = 0;
         gbc.gridy = 2;
@@ -323,7 +311,7 @@ public class TelaCliente extends JFrame {
         gbc.insets = new Insets(10, 8, 8, 8);
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
-        painel.add(painelBotoesFiltro, gbc);
+        painel.add(painelBotoes, gbc);
 
         return painel;
     }
@@ -347,10 +335,10 @@ public class TelaCliente extends JFrame {
 
     private JPanel criarPainelTabela() {
 
-        JPanel painelTabela =
+        JPanel painel =
                 new JPanel(new BorderLayout(10, 10));
 
-        painelTabela.setBorder(
+        painel.setBorder(
                 BorderFactory.createTitledBorder(
                         "Clientes cadastrados"
                 )
@@ -362,49 +350,39 @@ public class TelaCliente extends JFrame {
                 JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED
         );
 
-        JPanel painelInferiorTabela =
+        JPanel painelInferior =
                 new JPanel(new BorderLayout());
 
-        painelInferiorTabela.add(
+        painelInferior.add(
                 labelTotalClientes, BorderLayout.WEST
         );
 
-        painelTabela.add(
-                scrollTabela, BorderLayout.CENTER
-        );
+        painel.add(scrollTabela, BorderLayout.CENTER);
+        painel.add(painelInferior, BorderLayout.SOUTH);
 
-        painelTabela.add(
-                painelInferiorTabela, BorderLayout.SOUTH
-        );
-
-        return painelTabela;
+        return painel;
     }
 
     private JPanel criarPainelRodape() {
 
-        JPanel painelRodape =
+        JPanel painel =
                 new JPanel(new BorderLayout());
 
         JLabel mensagem = new JLabel(
                 "Selecione um cliente na tabela para atualizar ou excluir."
         );
 
-        JPanel painelBotaoVoltar =
+        JPanel painelBotao =
                 new JPanel(new FlowLayout(
                         FlowLayout.RIGHT, 0, 0
                 ));
 
-        painelBotaoVoltar.add(botaoVoltar);
+        painelBotao.add(botaoVoltar);
 
-        painelRodape.add(
-                mensagem, BorderLayout.WEST
-        );
+        painel.add(mensagem, BorderLayout.WEST);
+        painel.add(painelBotao, BorderLayout.EAST);
 
-        painelRodape.add(
-                painelBotaoVoltar, BorderLayout.EAST
-        );
-
-        return painelRodape;
+        return painel;
     }
 
     private GridBagConstraints criarGridBagConstraints() {
@@ -429,7 +407,6 @@ public class TelaCliente extends JFrame {
         gbc.gridy = linha;
         gbc.gridwidth = 1;
         gbc.weightx = 0;
-        gbc.insets = new Insets(8, 8, 8, 8);
 
         painel.add(new JLabel(textoLabel), gbc);
 
@@ -444,27 +421,27 @@ public class TelaCliente extends JFrame {
     private void configurarEventos() {
 
         botaoCadastrar.addActionListener(
-                e -> controller.cadastrarCliente()
+                e -> cadastrarCliente()
         );
 
         botaoAtualizar.addActionListener(
-                e -> controller.atualizarCliente()
+                e -> atualizarCliente()
         );
 
         botaoExcluir.addActionListener(
-                e -> controller.excluirCliente()
+                e -> excluirCliente()
         );
 
         botaoFiltrar.addActionListener(
-                e -> controller.filtrarClientes()
-        );
-
-        botaoLimparFiltros.addActionListener(
-                e -> controller.limparFiltros()
+                e -> filtrarClientes()
         );
 
         botaoLimparCampos.addActionListener(
                 e -> limparCampos()
+        );
+
+        botaoLimparFiltros.addActionListener(
+                e -> limparFiltros()
         );
 
         botaoVoltar.addActionListener(
@@ -472,23 +449,23 @@ public class TelaCliente extends JFrame {
         );
 
         campoNome.addActionListener(
-                e -> controller.cadastrarCliente()
+                e -> cadastrarCliente()
         );
 
         campoSobrenome.addActionListener(
-                e -> controller.cadastrarCliente()
+                e -> cadastrarCliente()
         );
 
         campoTelefone.addActionListener(
-                e -> controller.cadastrarCliente()
+                e -> cadastrarCliente()
         );
 
         campoFiltroSobrenome.addActionListener(
-                e -> controller.filtrarClientes()
+                e -> filtrarClientes()
         );
 
         campoFiltroTelefone.addActionListener(
-                e -> controller.filtrarClientes()
+                e -> filtrarClientes()
         );
 
         tabelaClientes.addMouseListener(
@@ -498,6 +475,8 @@ public class TelaCliente extends JFrame {
                     public void mouseClicked(MouseEvent e) {
 
                         if (e.getClickCount() == 2
+                                && tabelaClientes.rowAtPoint(
+                                e.getPoint()) != -1
                                 && tabelaClientes.getSelectedRow() != -1) {
 
                             obterCamposSelecionados();
@@ -507,31 +486,157 @@ public class TelaCliente extends JFrame {
         );
     }
 
-    // ================= GETTERS =================
+    // ================= CADASTRAR =================
 
-    public String getNome() {
-        return campoNome.getText();
+    private void cadastrarCliente() {
+
+        try {
+
+            controller.cadastrarCliente(
+                    campoNome.getText(),
+                    campoSobrenome.getText(),
+                    campoTelefone.getText()
+            );
+
+            limparCampos();
+            limparFiltros();
+
+            exibirMensagem(
+                    "Cliente cadastrado com sucesso."
+            );
+
+        } catch (CampoInvalidoException e) {
+
+            exibirErro(e.getMessage());
+
+        } catch (PersistenciaException e) {
+
+            tratarErroPersistencia(e);
+        }
     }
 
-    public String getSobrenome() {
-        return campoSobrenome.getText();
+    // ================= ATUALIZAR =================
+
+    private void atualizarCliente() {
+
+        try {
+
+            int id = obterIdSelecionado();
+
+            controller.atualizarCliente(
+                    id,
+                    campoNome.getText(),
+                    campoSobrenome.getText(),
+                    campoTelefone.getText()
+            );
+
+            limparCampos();
+            limparFiltros();
+
+            exibirMensagem(
+                    "Cliente atualizado com sucesso."
+            );
+
+        } catch (CampoInvalidoException |
+                 NenhumaLinhaSelecionadaException |
+                 ClienteNaoEncontradoException e) {
+
+            exibirErro(e.getMessage());
+
+        } catch (PersistenciaException e) {
+
+            tratarErroPersistencia(e);
+        }
     }
 
-    public String getTelefone() {
-        return campoTelefone.getText();
+    // ================= EXCLUIR =================
+
+    private void excluirCliente() {
+
+        try {
+
+            int id = obterIdSelecionado();
+
+            int opcao = JOptionPane.showConfirmDialog(
+                    this,
+                    "Deseja excluir esse cliente e seus pedidos?",
+                    "Confirmar exclusão",
+                    JOptionPane.YES_NO_OPTION
+            );
+
+            if (opcao != JOptionPane.YES_OPTION) {
+                return;
+            }
+
+            controller.excluirCliente(id);
+
+            limparCampos();
+            limparFiltros();
+
+            exibirMensagem(
+                    "Cliente excluído com sucesso."
+            );
+
+        } catch (NenhumaLinhaSelecionadaException |
+                 ClienteNaoEncontradoException e) {
+
+            exibirErro(e.getMessage());
+
+        } catch (PersistenciaException e) {
+
+            tratarErroPersistencia(e);
+        }
     }
 
-    public String getFiltroSobrenome() {
-        return campoFiltroSobrenome.getText();
-    }
+    // ================= FILTRAR =================
 
-    public String getFiltroTelefone() {
-        return campoFiltroTelefone.getText();
+    private void filtrarClientes() {
+
+        try {
+
+            List<Cliente> clientes =
+                    controller.filtrarClientes(
+                            campoFiltroSobrenome.getText(),
+                            campoFiltroTelefone.getText()
+                    );
+
+            limparCampos();
+            exibirClientes(clientes);
+
+        } catch (ClienteNaoEncontradoException e) {
+
+            limparCampos();
+            exibirClientes(List.of());
+            exibirErro(e.getMessage());
+
+        } catch (CampoInvalidoException e) {
+
+            exibirErro(e.getMessage());
+
+        } catch (PersistenciaException e) {
+
+            tratarErroPersistencia(e);
+        }
     }
 
     // ================= TABELA =================
 
-    public void exibirClientes(List<Cliente> clientes) {
+    private void carregarTabela() {
+
+        try {
+
+            List<Cliente> clientes =
+                    controller.listarClientes();
+
+            exibirClientes(clientes);
+
+        } catch (PersistenciaException e) {
+
+            tratarErroPersistencia(e);
+        }
+    }
+
+    private void exibirClientes(List<Cliente> clientes) {
 
         modeloTabela.setRowCount(0);
 
@@ -550,7 +655,7 @@ public class TelaCliente extends JFrame {
         );
     }
 
-    public int obterLinhaSelecionada() {
+    private int obterLinhaSelecionada() {
 
         int linha = tabelaClientes.getSelectedRow();
 
@@ -564,7 +669,7 @@ public class TelaCliente extends JFrame {
         return tabelaClientes.convertRowIndexToModel(linha);
     }
 
-    public int obterIdSelecionado() {
+    private int obterIdSelecionado() {
 
         int linha = obterLinhaSelecionada();
 
@@ -573,7 +678,7 @@ public class TelaCliente extends JFrame {
         );
     }
 
-    public void obterCamposSelecionados() {
+    private void obterCamposSelecionados() {
 
         int linha = obterLinhaSelecionada();
 
@@ -592,7 +697,7 @@ public class TelaCliente extends JFrame {
 
     // ================= LIMPEZA =================
 
-    public void limparCampos() {
+    private void limparCampos() {
 
         campoNome.setText("");
         campoSobrenome.setText("");
@@ -601,15 +706,17 @@ public class TelaCliente extends JFrame {
         tabelaClientes.clearSelection();
     }
 
-    public void limparCamposFiltro() {
+    private void limparFiltros() {
 
         campoFiltroSobrenome.setText("");
         campoFiltroTelefone.setText("");
+
+        carregarTabela();
     }
 
     // ================= MENSAGENS =================
 
-    public void exibirMensagem(String mensagem) {
+    private void exibirMensagem(String mensagem) {
 
         JOptionPane.showMessageDialog(
                 this,
@@ -619,7 +726,7 @@ public class TelaCliente extends JFrame {
         );
     }
 
-    public void exibirErro(String mensagem) {
+    private void exibirErro(String mensagem) {
 
         JOptionPane.showMessageDialog(
                 this,
@@ -629,15 +736,10 @@ public class TelaCliente extends JFrame {
         );
     }
 
-    public boolean confirmarExclusao() {
+    private void tratarErroPersistencia(
+            PersistenciaException e) {
 
-        int opcao = JOptionPane.showConfirmDialog(
-                this,
-                "Deseja realmente excluir esse cliente e seus pedidos?",
-                "Confirmar exclusão",
-                JOptionPane.YES_NO_OPTION
-        );
-
-        return opcao == JOptionPane.YES_OPTION;
+        e.printStackTrace();
+        exibirErro(e.getMessage());
     }
 }
