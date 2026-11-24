@@ -1,6 +1,7 @@
 package view;
 
 import controller.ClienteController;
+import controller.SaborController;
 import service.ClienteService;
 import service.PedidoService;
 import service.PrecoService;
@@ -14,6 +15,7 @@ import java.awt.*;
 public class TelaPrincipal extends JFrame {
 
     private final ClienteController clienteController;
+    private final SaborController saborController;
 
     // Dependências temporárias dos módulos antigos.
     private final ClienteService clienteService;
@@ -30,12 +32,15 @@ public class TelaPrincipal extends JFrame {
 
     public TelaPrincipal(
             ClienteController clienteController,
+            SaborController saborController,
             ClienteService clienteService,
             SaborService saborService,
             PrecoService precoService,
             PedidoService pedidoService) {
 
         this.clienteController = clienteController;
+        this.saborController = saborController;
+
         this.clienteService = clienteService;
         this.saborService = saborService;
         this.precoService = precoService;
@@ -166,6 +171,14 @@ public class TelaPrincipal extends JFrame {
         telaCliente.setVisible(true);
     }
 
+    private void abrirTelaSabores() {
+
+        TelaSabor telaSabor =
+                new TelaSabor(saborController);
+
+        telaSabor.setVisible(true);
+    }
+
     private void abrirTelaPedidos() {
 
         TelaPedido telaPedido =
@@ -176,14 +189,6 @@ public class TelaPrincipal extends JFrame {
                 );
 
         telaPedido.setVisible(true);
-    }
-
-    private void abrirTelaSabores() {
-
-        TelaSabor telaSabor =
-                new TelaSabor(saborService);
-
-        telaSabor.setVisible(true);
     }
 
     private void abrirTelaPrecos() {
@@ -214,6 +219,7 @@ public class TelaPrincipal extends JFrame {
         );
 
         if (opcao == JOptionPane.YES_OPTION) {
+
             System.exit(0);
         }
     }

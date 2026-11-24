@@ -1,21 +1,27 @@
 package view;
 
+import controller.SaborController;
 import exception.CampoInvalidoException;
 import exception.NenhumaLinhaSelecionadaException;
+import exception.PersistenciaException;
 import exception.SaborInvalidoException;
 import model.Sabor;
 import model.TipoPizza;
-import service.SaborService;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
+
 import java.awt.*;
-import java.awt.event.*;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.util.List;
 
 public class TelaSabor extends JFrame {
 
-    private SaborService saborService;
+    private final SaborController controller;
 
     private JTextField campoNomeSabor;
     private JTextField campoBuscaSabor;
@@ -32,8 +38,9 @@ public class TelaSabor extends JFrame {
 
     private JLabel labelTotalSabores;
 
-    public TelaSabor(SaborService saborService) {
-        this.saborService = saborService;
+    public TelaSabor(SaborController controller) {
+
+        this.controller = controller;
 
         configurarJanela();
         inicializarComponentes();
@@ -41,7 +48,11 @@ public class TelaSabor extends JFrame {
         configurarEventos();
         carregarTabela();
     }
+
+    // ================= JANELA =================
+
     private void configurarJanela() {
+
         setTitle("Cadastro de Sabores");
         setSize(900, 550);
         setMinimumSize(new Dimension(800, 500));
@@ -51,11 +62,17 @@ public class TelaSabor extends JFrame {
         setExtendedState(JFrame.MAXIMIZED_BOTH);
     }
 
+    // ================= COMPONENTES =================
+
     private void inicializarComponentes() {
+
         campoNomeSabor = new JTextField();
         campoBuscaSabor = new JTextField();
 
-        comboTipoPizza = new JComboBox<>(TipoPizza.values());
+        comboTipoPizza = new JComboBox<>(
+                TipoPizza.values()
+        );
+
         comboTipoPizza.setSelectedIndex(0);
 
         botaoCadastrar = new JButton("Cadastrar");
@@ -69,77 +86,149 @@ public class TelaSabor extends JFrame {
                 0
         ) {
             @Override
-            public boolean isCellEditable(int row, int column) {
+            public boolean isCellEditable(
+                    int row, int column) {
+
                 return false;
             }
         };
 
         tabelaSabores = new JTable(modeloTabela);
-        tabelaSabores.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        tabelaSabores.getTableHeader().setReorderingAllowed(false);
+
+        tabelaSabores.setSelectionMode(
+                ListSelectionModel.SINGLE_SELECTION
+        );
+
+        tabelaSabores.getTableHeader()
+                .setReorderingAllowed(false);
+
         tabelaSabores.setRowHeight(24);
-        tabelaSabores.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
 
-        tabelaSabores.getColumnModel().getColumn(0).setPreferredWidth(60);
-        tabelaSabores.getColumnModel().getColumn(1).setPreferredWidth(300);
-        tabelaSabores.getColumnModel().getColumn(2).setPreferredWidth(160);
+        tabelaSabores.setAutoResizeMode(
+                JTable.AUTO_RESIZE_ALL_COLUMNS
+        );
 
-        labelTotalSabores = new JLabel("Total de sabores: 0");
+        tabelaSabores.getColumnModel()
+                .getColumn(0).setPreferredWidth(60);
+
+        tabelaSabores.getColumnModel()
+                .getColumn(1).setPreferredWidth(300);
+
+        tabelaSabores.getColumnModel()
+                .getColumn(2).setPreferredWidth(160);
+
+        labelTotalSabores =
+                new JLabel("Total de sabores: 0");
     }
 
-    private void montarLayout() {
-        JPanel painelPrincipal = new JPanel(new BorderLayout(15, 15));
-        painelPrincipal.setBorder(new EmptyBorder(20, 20, 20, 20));
+    // ================= LAYOUT =================
 
-        painelPrincipal.add(criarPainelTopo(), BorderLayout.NORTH);
-        painelPrincipal.add(criarPainelCentral(), BorderLayout.CENTER);
-        painelPrincipal.add(criarPainelRodape(), BorderLayout.SOUTH);
+    private void montarLayout() {
+
+        JPanel painelPrincipal =
+                new JPanel(new BorderLayout(15, 15));
+
+        painelPrincipal.setBorder(
+                new EmptyBorder(20, 20, 20, 20)
+        );
+
+        painelPrincipal.add(
+                criarPainelTopo(), BorderLayout.NORTH
+        );
+
+        painelPrincipal.add(
+                criarPainelCentral(), BorderLayout.CENTER
+        );
+
+        painelPrincipal.add(
+                criarPainelRodape(), BorderLayout.SOUTH
+        );
 
         setContentPane(painelPrincipal);
     }
 
     private JPanel criarPainelTopo() {
-        JPanel painelTopo = new JPanel(new BorderLayout());
 
-        JLabel titulo = new JLabel("Cadastro de Sabores");
-        titulo.setFont(new Font("Arial", Font.BOLD, 26));
+        JPanel painelTopo =
+                new JPanel(new BorderLayout());
 
-        JLabel subtitulo = new JLabel("Cadastre os sabores e relacione cada um ao tipo da pizza");
-        subtitulo.setFont(new Font("Arial", Font.PLAIN, 14));
+        JLabel titulo =
+                new JLabel("Cadastro de Sabores");
+
+        titulo.setFont(
+                new Font("Arial", Font.BOLD, 26)
+        );
+
+        JLabel subtitulo = new JLabel(
+                "Cadastre os sabores e relacione cada um ao tipo da pizza"
+        );
+
+        subtitulo.setFont(
+                new Font("Arial", Font.PLAIN, 14)
+        );
 
         JPanel painelTextos = new JPanel();
-        painelTextos.setLayout(new BoxLayout(painelTextos, BoxLayout.Y_AXIS));
+
+        painelTextos.setLayout(
+                new BoxLayout(painelTextos, BoxLayout.Y_AXIS)
+        );
+
         painelTextos.add(titulo);
         painelTextos.add(Box.createVerticalStrut(6));
         painelTextos.add(subtitulo);
 
-        painelTopo.add(painelTextos, BorderLayout.WEST);
+        painelTopo.add(
+                painelTextos, BorderLayout.WEST
+        );
 
         return painelTopo;
     }
 
     private JPanel criarPainelCentral() {
-        JPanel painelCentral = new JPanel(new BorderLayout(15, 0));
 
-        painelCentral.add(criarPainelFormulario(), BorderLayout.WEST);
-        painelCentral.add(criarPainelTabela(), BorderLayout.CENTER);
+        JPanel painelCentral =
+                new JPanel(new BorderLayout(15, 0));
+
+        painelCentral.add(
+                criarPainelFormulario(), BorderLayout.WEST
+        );
+
+        painelCentral.add(
+                criarPainelTabela(), BorderLayout.CENTER
+        );
 
         return painelCentral;
     }
 
     private JPanel criarPainelFormulario() {
+
         JPanel painelFormulario = new JPanel();
-        painelFormulario.setLayout(new BoxLayout(painelFormulario, BoxLayout.Y_AXIS));
-        painelFormulario.setPreferredSize(new Dimension(300, 0));
+
+        painelFormulario.setLayout(
+                new BoxLayout(
+                        painelFormulario,
+                        BoxLayout.Y_AXIS
+                )
+        );
+
+        painelFormulario.setPreferredSize(
+                new Dimension(300, 0)
+        );
 
         JPanel painelDados = criarPainelDadosSabor();
         JPanel painelAcoes = criarPainelAcoes();
 
-        painelDados.setMaximumSize(new Dimension(Integer.MAX_VALUE, 150));
-        painelAcoes.setMaximumSize(new Dimension(Integer.MAX_VALUE, 190));
+        painelDados.setMaximumSize(
+                new Dimension(Integer.MAX_VALUE, 150)
+        );
+
+        painelAcoes.setMaximumSize(
+                new Dimension(Integer.MAX_VALUE, 190)
+        );
 
         painelFormulario.add(painelDados);
         painelFormulario.add(Box.createVerticalStrut(12));
+
         painelFormulario.add(painelAcoes);
         painelFormulario.add(Box.createVerticalGlue());
 
@@ -147,23 +236,33 @@ public class TelaSabor extends JFrame {
     }
 
     private JPanel criarPainelDadosSabor() {
-        JPanel painel = new JPanel(new GridLayout(4, 1, 8, 8));
-        painel.setBorder(BorderFactory.createTitledBorder("Dados do sabor"));
 
-        JLabel labelNome = new JLabel("Nome do sabor:");
-        JLabel labelTipo = new JLabel("Tipo da pizza:");
+        JPanel painel =
+                new JPanel(new GridLayout(4, 1, 8, 8));
 
-        painel.add(labelNome);
+        painel.setBorder(
+                BorderFactory.createTitledBorder(
+                        "Dados do sabor"
+                )
+        );
+
+        painel.add(new JLabel("Nome do sabor:"));
         painel.add(campoNomeSabor);
-        painel.add(labelTipo);
+
+        painel.add(new JLabel("Tipo da pizza:"));
         painel.add(comboTipoPizza);
 
         return painel;
     }
 
     private JPanel criarPainelAcoes() {
-        JPanel painel = new JPanel(new GridLayout(4, 1, 0, 10));
-        painel.setBorder(BorderFactory.createTitledBorder("Ações"));
+
+        JPanel painel =
+                new JPanel(new GridLayout(4, 1, 0, 10));
+
+        painel.setBorder(
+                BorderFactory.createTitledBorder("Ações")
+        );
 
         painel.add(botaoCadastrar);
         painel.add(botaoAtualizar);
@@ -174,19 +273,32 @@ public class TelaSabor extends JFrame {
     }
 
     private JPanel criarPainelBusca() {
-        JPanel painelBusca = new JPanel(new BorderLayout(8, 8));
 
-        JLabel labelBusca = new JLabel("Buscar sabor:");
+        JPanel painelBusca =
+                new JPanel(new BorderLayout(8, 8));
 
-        painelBusca.add(labelBusca, BorderLayout.WEST);
-        painelBusca.add(campoBuscaSabor, BorderLayout.CENTER);
+        painelBusca.add(
+                new JLabel("Buscar sabor:"),
+                BorderLayout.WEST
+        );
+
+        painelBusca.add(
+                campoBuscaSabor, BorderLayout.CENTER
+        );
 
         return painelBusca;
     }
 
     private JPanel criarPainelTabela() {
-        JPanel painelTabela = new JPanel(new BorderLayout(10, 10));
-        painelTabela.setBorder(BorderFactory.createTitledBorder("Sabores cadastrados"));
+
+        JPanel painelTabela =
+                new JPanel(new BorderLayout(10, 10));
+
+        painelTabela.setBorder(
+                BorderFactory.createTitledBorder(
+                        "Sabores cadastrados"
+                )
+        );
 
         JScrollPane scrollTabela = new JScrollPane(
                 tabelaSabores,
@@ -194,198 +306,184 @@ public class TelaSabor extends JFrame {
                 JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED
         );
 
-        JPanel painelInferior = new JPanel(new BorderLayout());
-        painelInferior.add(labelTotalSabores, BorderLayout.WEST);
+        JPanel painelInferior =
+                new JPanel(new BorderLayout());
 
-        painelTabela.add(criarPainelBusca(), BorderLayout.NORTH);
-        painelTabela.add(scrollTabela, BorderLayout.CENTER);
-        painelTabela.add(painelInferior, BorderLayout.SOUTH);
+        painelInferior.add(
+                labelTotalSabores, BorderLayout.WEST
+        );
+
+        painelTabela.add(
+                criarPainelBusca(), BorderLayout.NORTH
+        );
+
+        painelTabela.add(
+                scrollTabela, BorderLayout.CENTER
+        );
+
+        painelTabela.add(
+                painelInferior, BorderLayout.SOUTH
+        );
 
         return painelTabela;
     }
 
     private JPanel criarPainelRodape() {
-        JPanel painelRodape = new JPanel(new BorderLayout());
 
-        JLabel mensagem = new JLabel("Selecione um sabor na tabela para atualizar ou excluir.");
+        JPanel painelRodape =
+                new JPanel(new BorderLayout());
 
-        JPanel painelBotaoVoltar = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        JLabel mensagem = new JLabel(
+                "Selecione um sabor na tabela para atualizar ou excluir."
+        );
+
+        JPanel painelBotaoVoltar =
+                new JPanel(new FlowLayout(
+                        FlowLayout.RIGHT, 0, 0
+                ));
+
         painelBotaoVoltar.add(botaoVoltar);
 
-        painelRodape.add(mensagem, BorderLayout.WEST);
-        painelRodape.add(painelBotaoVoltar, BorderLayout.EAST);
+        painelRodape.add(
+                mensagem, BorderLayout.WEST
+        );
+
+        painelRodape.add(
+                painelBotaoVoltar, BorderLayout.EAST
+        );
 
         return painelRodape;
     }
 
-    public void carregarTabela() {
-        modeloTabela.setRowCount(0);
+    // ================= EVENTOS =================
 
-        java.util.List<Sabor> sabores = saborService.listarSabores();
+    private void configurarEventos() {
 
-        for (Sabor saborAtual : sabores) {
-            modeloTabela.addRow(new Object[]{
-                    saborAtual.getIdSabor(),
-                    saborAtual.getNome(),
-                    saborAtual.getTipoPizza()
-            });
-        }
+        botaoCadastrar.addActionListener(
+                e -> cadastrarSabor()
+        );
 
-        labelTotalSabores.setText("Total de sabores: " + sabores.size());
+        botaoAtualizar.addActionListener(
+                e -> atualizarSabor()
+        );
 
-    }
+        botaoExcluir.addActionListener(
+                e -> excluirSabor()
+        );
 
-    public void limparCampos() {
-        campoNomeSabor.setText("");
-        comboTipoPizza.setSelectedIndex(0);
-        tabelaSabores.clearSelection();
-    }
+        botaoLimparCampos.addActionListener(
+                e -> limparCampos()
+        );
 
-    public void configurarEventos() {
+        botaoVoltar.addActionListener(
+                e -> dispose()
+        );
 
-        //AÇÕES DOS BOTÕES ----------------------------------------
+        campoNomeSabor.addActionListener(
+                e -> cadastrarSabor()
+        );
 
-        botaoCadastrar.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                cadastrarSabor();
-            }
-        });
+        tabelaSabores.addMouseListener(
+                new MouseAdapter() {
 
-        botaoAtualizar.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                atualizarSabor();
-            }
-        });
+                    @Override
+                    public void mouseClicked(MouseEvent e) {
 
-        botaoLimparCampos.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                limparCampos();
-            }
-        });
+                        if (e.getClickCount() == 2
+                                && tabelaSabores.rowAtPoint(
+                                e.getPoint()) != -1
+                                && tabelaSabores.getSelectedRow() != -1) {
 
-        botaoExcluir.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                excluirSabor();
-            }
-        });
-
-        botaoVoltar.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                dispose();
-            }
-        });
-
-        //AÇÕES DOS CAMPOS -----------------------------------------------
-        campoNomeSabor.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                cadastrarSabor();
-            }
-        });
-
-        //AÇÕES DO MOUSE -----------------------------------------------
-
-        tabelaSabores.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mouseClicked(MouseEvent e) {
-                obterIdSelecionado();
-            }
-        });
-
-        tabelaSabores.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mouseClicked(MouseEvent e) {
-                if (e.getClickCount() == 2) {
-                    obterCamposSelecionados();
-                    obterIdSelecionado();
+                            obterCamposSelecionados();
+                        }
+                    }
                 }
-            }
-        });
+        );
 
-        //ACOES DO TECLADO ------------------------------------------------
-        campoBuscaSabor.addKeyListener(new KeyAdapter() {
-            @Override
-            public void keyReleased(KeyEvent e) {
-                filtrarSaboresPorNome();
-            }
-        });
+        campoBuscaSabor.addKeyListener(
+                new KeyAdapter() {
 
+                    @Override
+                    public void keyReleased(KeyEvent e) {
+
+                        filtrarSaboresPorNome();
+                    }
+                }
+        );
     }
 
+    // ================= CADASTRAR =================
 
-    public void cadastrarSabor() {
+    private void cadastrarSabor() {
 
         try {
+
             String nome = campoNomeSabor.getText();
-            TipoPizza tipo = (TipoPizza) comboTipoPizza.getSelectedItem();
 
-            saborService.cadastrarSabor(nome, tipo);
+            TipoPizza tipo = (TipoPizza)
+                    comboTipoPizza.getSelectedItem();
 
-            limparCampos();
-            carregarTabela();
+            controller.cadastrarSabor(nome, tipo);
 
-            JOptionPane.showMessageDialog(this, "Sabor cadastrado com sucesso. ");
-        } catch (CampoInvalidoException | SaborInvalidoException e) {
-            JOptionPane.showMessageDialog(this, e.getMessage());
+            atualizarTela();
+
+            exibirMensagem(
+                    "Sabor cadastrado com sucesso."
+            );
+
+        } catch (CampoInvalidoException |
+                 SaborInvalidoException e) {
+
+            exibirErro(e.getMessage());
+
+        } catch (PersistenciaException e) {
+
+            tratarErroPersistencia(e);
         }
     }
 
-    public int obterLinhaSelecionada() {
-        int linhaSelecionada = tabelaSabores.getSelectedRow();
+    // ================= ATUALIZAR =================
 
-        if (linhaSelecionada == -1) {
-            throw new NenhumaLinhaSelecionadaException("Nenhuma linha foi selecionada");
-        }
-
-        return linhaSelecionada;
-    }
-
-    public void obterCamposSelecionados() {
-        int linhaSelecionada = obterLinhaSelecionada();
-
-        String nome = modeloTabela.getValueAt(linhaSelecionada, 1).toString();
-
-        String tipoTexto = modeloTabela.getValueAt(linhaSelecionada, 2).toString();
-        TipoPizza tipo = TipoPizza.valueOf(tipoTexto);
-
-        campoNomeSabor.setText(nome);
-        comboTipoPizza.setSelectedItem(tipo);
-    }
-
-    public int obterIdSelecionado() {
-        int linhaSelecionada = obterLinhaSelecionada();
-        return Integer.parseInt(modeloTabela.getValueAt(linhaSelecionada, 0).toString());
-    }
-
-    public void atualizarSabor() {
+    private void atualizarSabor() {
 
         try {
 
-            int idSelecionado = obterIdSelecionado();
+            int id = obterIdSelecionado();
 
-            String nomeNovo = campoNomeSabor.getText();
-            TipoPizza tipo = (TipoPizza) comboTipoPizza.getSelectedItem();
+            String nome = campoNomeSabor.getText();
 
-            saborService.editarSabor(idSelecionado, nomeNovo, tipo);
+            TipoPizza tipo = (TipoPizza)
+                    comboTipoPizza.getSelectedItem();
 
-            carregarTabela();
-            limparCampos();
+            controller.atualizarSabor(
+                    id, nome, tipo
+            );
 
-            JOptionPane.showMessageDialog(this, "Sabor atualizado com sucesso. ");
-        } catch (CampoInvalidoException | SaborInvalidoException | NenhumaLinhaSelecionadaException e) {
-            JOptionPane.showMessageDialog(this, e.getMessage());
+            atualizarTela();
+
+            exibirMensagem(
+                    "Sabor atualizado com sucesso."
+            );
+
+        } catch (CampoInvalidoException |
+                 SaborInvalidoException |
+                 NenhumaLinhaSelecionadaException e) {
+
+            exibirErro(e.getMessage());
+
+        } catch (PersistenciaException e) {
+
+            tratarErroPersistencia(e);
         }
-
     }
 
-    public void excluirSabor() {
+    // ================= EXCLUIR =================
+
+    private void excluirSabor() {
+
         try {
-            int idSelecionado = obterIdSelecionado();
+
+            int id = obterIdSelecionado();
 
             int opcao = JOptionPane.showConfirmDialog(
                     this,
@@ -394,42 +492,170 @@ public class TelaSabor extends JFrame {
                     JOptionPane.YES_NO_OPTION
             );
 
-            if (opcao == JOptionPane.YES_OPTION) {
-                saborService.excluirSabor(idSelecionado);
-
-                carregarTabela();
-                limparCampos();
-
-                JOptionPane.showMessageDialog(this, "Sabor excluído com sucesso.");
+            if (opcao != JOptionPane.YES_OPTION) {
+                return;
             }
 
-        } catch (CampoInvalidoException | SaborInvalidoException | NenhumaLinhaSelecionadaException e) {
-            JOptionPane.showMessageDialog(this, e.getMessage());
+            controller.excluirSabor(id);
+
+            atualizarTela();
+
+            exibirMensagem(
+                    "Sabor excluído com sucesso."
+            );
+
+        } catch (SaborInvalidoException |
+                 NenhumaLinhaSelecionadaException e) {
+
+            exibirErro(e.getMessage());
+
+        } catch (PersistenciaException e) {
+
+            tratarErroPersistencia(e);
         }
     }
 
-    public void filtrarSaboresPorNome() {
+    // ================= FILTRAR =================
+
+    private void filtrarSaboresPorNome() {
+
         try {
-            String nomeBuscado = campoBuscaSabor.getText();
 
-            java.util.List<Sabor> saboresFiltrados = saborService.listarPorSabor(nomeBuscado);
+            List<Sabor> sabores =
+                    controller.filtrarSabores(
+                            campoBuscaSabor.getText()
+                    );
 
-            modeloTabela.setRowCount(0);
+            limparCampos();
 
-            for (Sabor saborAtual : saboresFiltrados) {
-                modeloTabela.addRow(new Object[]{
-                        saborAtual.getIdSabor(),
-                        saborAtual.getNome(),
-                        saborAtual.getTipoPizza()
-                });
-            }
+            exibirSabores(sabores);
 
-            labelTotalSabores.setText("Total de sabores: " + saboresFiltrados.size());
+        } catch (PersistenciaException e) {
 
-        } catch (CampoInvalidoException | SaborInvalidoException e) {
-            JOptionPane.showMessageDialog(this, e.getMessage());
+            tratarErroPersistencia(e);
         }
     }
 
-}
+    // ================= TABELA =================
 
+    private void carregarTabela() {
+
+        try {
+
+            List<Sabor> sabores =
+                    controller.listarSabores();
+
+            exibirSabores(sabores);
+
+        } catch (PersistenciaException e) {
+
+            tratarErroPersistencia(e);
+        }
+    }
+
+    private void exibirSabores(List<Sabor> sabores) {
+
+        modeloTabela.setRowCount(0);
+
+        for (Sabor sabor : sabores) {
+
+            modeloTabela.addRow(new Object[]{
+                    sabor.getIdSabor(),
+                    sabor.getNome(),
+                    sabor.getTipoPizza()
+            });
+        }
+
+        labelTotalSabores.setText(
+                "Total de sabores: " + sabores.size()
+        );
+    }
+
+    private int obterLinhaSelecionada() {
+
+        int linha = tabelaSabores.getSelectedRow();
+
+        if (linha == -1) {
+
+            throw new NenhumaLinhaSelecionadaException(
+                    "Nenhuma linha foi selecionada."
+            );
+        }
+
+        return tabelaSabores.convertRowIndexToModel(linha);
+    }
+
+    private int obterIdSelecionado() {
+
+        int linha = obterLinhaSelecionada();
+
+        return Integer.parseInt(
+                modeloTabela.getValueAt(linha, 0).toString()
+        );
+    }
+
+    private void obterCamposSelecionados() {
+
+        int linha = obterLinhaSelecionada();
+
+        String nome = modeloTabela.getValueAt(
+                linha, 1
+        ).toString();
+
+        TipoPizza tipo = TipoPizza.valueOf(
+                modeloTabela.getValueAt(linha, 2).toString()
+        );
+
+        campoNomeSabor.setText(nome);
+
+        comboTipoPizza.setSelectedItem(tipo);
+    }
+
+    // ================= LIMPEZA =================
+
+    private void limparCampos() {
+
+        campoNomeSabor.setText("");
+        comboTipoPizza.setSelectedIndex(0);
+        tabelaSabores.clearSelection();
+    }
+
+    private void atualizarTela() {
+
+        limparCampos();
+
+        campoBuscaSabor.setText("");
+
+        carregarTabela();
+    }
+
+    // ================= MENSAGENS =================
+
+    private void exibirMensagem(String mensagem) {
+
+        JOptionPane.showMessageDialog(
+                this,
+                mensagem,
+                "Informação",
+                JOptionPane.INFORMATION_MESSAGE
+        );
+    }
+
+    private void exibirErro(String mensagem) {
+
+        JOptionPane.showMessageDialog(
+                this,
+                mensagem,
+                "Erro",
+                JOptionPane.ERROR_MESSAGE
+        );
+    }
+
+    private void tratarErroPersistencia(
+            PersistenciaException e) {
+
+        e.printStackTrace();
+
+        exibirErro(e.getMessage());
+    }
+}

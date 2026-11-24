@@ -1,7 +1,9 @@
 package app;
 
 import controller.ClienteController;
+import controller.SaborController;
 import dao.ClienteDAO;
+import dao.SaborDAO;
 import dao.DaoFactory;
 import repository.RepositoryMemoria;
 import service.ClienteService;
@@ -18,14 +20,16 @@ public class Main {
 
         SwingUtilities.invokeLater(() -> {
 
-            // Armazenamento temporário dos módulos
-            // que ainda não foram migrados.
+            // Armazenamento temporário
             RepositoryMemoria repositoryMemoria =
                     new RepositoryMemoria();
 
             // DAOs
             ClienteDAO clienteDAO =
                     DaoFactory.getClienteDAO();
+
+            SaborDAO saborDAO =
+                    DaoFactory.getSaborDAO();
 
             // Services
             ClienteService clienteService =
@@ -35,7 +39,7 @@ public class Main {
                     );
 
             SaborService saborService =
-                    new SaborService(repositoryMemoria);
+                    new SaborService(saborDAO);
 
             PrecoService precoService =
                     new PrecoService(repositoryMemoria);
@@ -47,10 +51,14 @@ public class Main {
             ClienteController clienteController =
                     new ClienteController(clienteService);
 
+            SaborController saborController =
+                    new SaborController(saborService);
+
             // Interface principal
             TelaPrincipal telaPrincipal =
                     new TelaPrincipal(
                             clienteController,
+                            saborController,
                             clienteService,
                             saborService,
                             precoService,
