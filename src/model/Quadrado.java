@@ -21,8 +21,10 @@ public class Quadrado extends Forma{
     }
 
     @Override
-    public String descricao(){
-        return "Quadrado - Lado de: " + lado;
-    }
+    public String descricao() {
 
+        return String.format(
+                "Quadrado - Lado de: %.2f", lado
+        );
+    }
 }

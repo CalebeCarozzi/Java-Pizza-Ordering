@@ -1,62 +1,41 @@
 package view;
 
-import controller.ClienteController;
-import controller.SaborController;
-import controller.PrecoController;
-
-import service.ClienteService;
-import service.PedidoService;
-import service.SaborService;
-
+import controller.*;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
-
 import java.awt.*;
 
 public class TelaPrincipal extends JFrame {
-
     private final ClienteController clienteController;
     private final SaborController saborController;
     private final PrecoController precoController;
+    private final PedidoController pedidoController;
+    private final StatusPedidoController statusPedidoController;
 
-    // Dependências temporárias da tela de pedidos.
-    private final ClienteService clienteService;
-    private final SaborService saborService;
-    private final PedidoService pedidoService;
+    private final JButton botaoPedidos = new JButton("Pedidos");
+    private final JButton botaoClientes = new JButton("Clientes");
+    private final JButton botaoSabores = new JButton("Sabores");
+    private final JButton botaoPrecos = new JButton("Preços");
+    private final JButton botaoStatusPedidos = new JButton("Status dos Pedidos");
+    private final JButton botaoSair = new JButton("Sair");
 
-    private JButton botaoPedidos;
-    private JButton botaoClientes;
-    private JButton botaoSabores;
-    private JButton botaoPrecos;
-    private JButton botaoStatusPedidos;
-    private JButton botaoSair;
-
-    public TelaPrincipal(
-            ClienteController clienteController,
-            SaborController saborController,
-            PrecoController precoController,
-            ClienteService clienteService,
-            SaborService saborService,
-            PedidoService pedidoService) {
-
+    public TelaPrincipal(ClienteController clienteController,
+                         SaborController saborController,
+                         PrecoController precoController,
+                         PedidoController pedidoController,
+                         StatusPedidoController statusPedidoController) {
         this.clienteController = clienteController;
         this.saborController = saborController;
         this.precoController = precoController;
-
-        this.clienteService = clienteService;
-        this.saborService = saborService;
-        this.pedidoService = pedidoService;
+        this.pedidoController = pedidoController;
+        this.statusPedidoController = statusPedidoController;
 
         configurarJanela();
-        inicializarComponentes();
         montarLayout();
         configurarEventos();
     }
 
-    // ================= JANELA =================
-
     private void configurarJanela() {
-
         setTitle("Sistema de Pedidos de Pizza");
         setSize(420, 420);
         setMinimumSize(new Dimension(420, 420));
@@ -66,50 +45,15 @@ public class TelaPrincipal extends JFrame {
         setExtendedState(JFrame.MAXIMIZED_BOTH);
     }
 
-    // ================= COMPONENTES =================
-
-    private void inicializarComponentes() {
-
-        botaoPedidos = new JButton("Pedidos");
-        botaoClientes = new JButton("Clientes");
-        botaoSabores = new JButton("Sabores");
-        botaoPrecos = new JButton("Preços");
-
-        botaoStatusPedidos =
-                new JButton("Status dos Pedidos");
-
-        botaoSair = new JButton("Sair");
-    }
-
-    // ================= LAYOUT =================
-
     private void montarLayout() {
+        JPanel painelPrincipal = new JPanel(new BorderLayout());
+        painelPrincipal.setBorder(new EmptyBorder(20, 20, 20, 20));
 
-        JPanel painelPrincipal =
-                new JPanel(new BorderLayout());
+        JLabel titulo = new JLabel("Sistema de Pedidos de Pizza", SwingConstants.CENTER);
+        titulo.setFont(new Font("Arial", Font.BOLD, 22));
 
-        painelPrincipal.setBorder(
-                new EmptyBorder(20, 20, 20, 20)
-        );
-
-        JLabel titulo =
-                new JLabel("Sistema de Pedidos de Pizza");
-
-        titulo.setFont(
-                new Font("Arial", Font.BOLD, 22)
-        );
-
-        titulo.setHorizontalAlignment(
-                SwingConstants.CENTER
-        );
-
-        JPanel painelBotoes =
-                new JPanel(new GridLayout(6, 1, 0, 10));
-
-        painelBotoes.setPreferredSize(
-                new Dimension(320, 300)
-        );
-
+        JPanel painelBotoes = new JPanel(new GridLayout(6, 1, 0, 10));
+        painelBotoes.setPreferredSize(new Dimension(320, 300));
         painelBotoes.add(botaoPedidos);
         painelBotoes.add(botaoClientes);
         painelBotoes.add(botaoSabores);
@@ -117,110 +61,26 @@ public class TelaPrincipal extends JFrame {
         painelBotoes.add(botaoStatusPedidos);
         painelBotoes.add(botaoSair);
 
-        JPanel painelCentro =
-                new JPanel(new GridBagLayout());
-
+        JPanel painelCentro = new JPanel(new GridBagLayout());
         painelCentro.add(painelBotoes);
-
-        painelPrincipal.add(
-                titulo, BorderLayout.NORTH
-        );
-
-        painelPrincipal.add(
-                painelCentro, BorderLayout.CENTER
-        );
-
+        painelPrincipal.add(titulo, BorderLayout.NORTH);
+        painelPrincipal.add(painelCentro, BorderLayout.CENTER);
         setContentPane(painelPrincipal);
     }
 
-    // ================= EVENTOS =================
-
     private void configurarEventos() {
-
-        botaoPedidos.addActionListener(
-                e -> abrirTelaPedidos()
-        );
-
-        botaoClientes.addActionListener(
-                e -> abrirTelaClientes()
-        );
-
-        botaoSabores.addActionListener(
-                e -> abrirTelaSabores()
-        );
-
-        botaoPrecos.addActionListener(
-                e -> abrirTelaPrecos()
-        );
-
-        botaoStatusPedidos.addActionListener(
-                e -> abrirTelaStatusPedidos()
-        );
-
-        botaoSair.addActionListener(
-                e -> sair()
-        );
+        botaoPedidos.addActionListener(e -> new TelaPedido(pedidoController).setVisible(true));
+        botaoClientes.addActionListener(e -> new TelaCliente(clienteController).setVisible(true));
+        botaoSabores.addActionListener(e -> new TelaSabor(saborController).setVisible(true));
+        botaoPrecos.addActionListener(e -> new TelaPreco(precoController).setVisible(true));
+        botaoStatusPedidos.addActionListener(e -> new TelaStatusPedido(statusPedidoController).setVisible(true));
+        botaoSair.addActionListener(e -> sair());
     }
-
-    // ================= TELAS =================
-
-    private void abrirTelaClientes() {
-
-        TelaCliente tela =
-                new TelaCliente(clienteController);
-
-        tela.setVisible(true);
-    }
-
-    private void abrirTelaSabores() {
-
-        TelaSabor tela =
-                new TelaSabor(saborController);
-
-        tela.setVisible(true);
-    }
-
-    private void abrirTelaPrecos() {
-
-        TelaPreco tela =
-                new TelaPreco(precoController);
-
-        tela.setVisible(true);
-    }
-
-    private void abrirTelaPedidos() {
-
-        TelaPedido tela =
-                new TelaPedido(
-                        clienteService,
-                        saborService,
-                        pedidoService
-                );
-
-        tela.setVisible(true);
-    }
-
-    private void abrirTelaStatusPedidos() {
-
-        TelaStatusPedido tela =
-                new TelaStatusPedido(pedidoService);
-
-        tela.setVisible(true);
-    }
-
-    // ================= SAIR =================
 
     private void sair() {
-
-        int opcao = JOptionPane.showConfirmDialog(
-                this,
-                "Deseja sair do sistema?",
-                "Confirmação",
-                JOptionPane.YES_NO_OPTION
-        );
-
+        int opcao = JOptionPane.showConfirmDialog(this, "Deseja sair do sistema?",
+                "Confirmação", JOptionPane.YES_NO_OPTION);
         if (opcao == JOptionPane.YES_OPTION) {
-
             System.exit(0);
         }
     }

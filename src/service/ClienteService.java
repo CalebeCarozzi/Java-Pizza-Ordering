@@ -1,11 +1,9 @@
 package service;
 
 import dao.ClienteDAO;
-import dao.DaoFactory;
-import exception.ClienteNaoEncontradoException;
 import exception.CampoInvalidoException;
+import exception.ClienteNaoEncontradoException;
 import model.Cliente;
-import repository.RepositoryMemoria;
 
 import java.util.List;
 
@@ -13,23 +11,12 @@ public class ClienteService {
 
     private final ClienteDAO clienteDAO;
 
-    // Temporário: os pedidos ainda utilizam memória.
-    private final RepositoryMemoria repositoryMemoria;
-
-    // Construtor com injeção de dependência.
-    public ClienteService(
-            ClienteDAO clienteDAO,
-            RepositoryMemoria repositoryMemoria) {
+    public ClienteService(ClienteDAO clienteDAO) {
 
         this.clienteDAO = clienteDAO;
-        this.repositoryMemoria = repositoryMemoria;
     }
 
-    // Construtor temporário para manter a TelaPrincipal funcionando.
-    public ClienteService(RepositoryMemoria repositoryMemoria) {
-
-        this(DaoFactory.getClienteDAO(), repositoryMemoria);
-    }
+    // ================= CADASTRAR =================
 
     public void cadastrarCliente(
             String nome, String sobrenome, String telefone) {
@@ -38,8 +25,9 @@ public class ClienteService {
         sobrenome = normalizar(sobrenome);
         telefone = normalizar(telefone);
 
-        validaCampos(nome, sobrenome, telefone);
-        validarTelefoneDuplicado(telefone);
+        validarCampos(nome, sobrenome, telefone);
+
+        validarTelefoneDuplicado(telefone, 0);
 
         Cliente cliente = new Cliente(
                 nome, sobrenome, telefone
@@ -48,69 +36,11 @@ public class ClienteService {
         clienteDAO.salvar(cliente);
     }
 
-    public void excluirCliente(int idCliente) {
-
-        clienteDAO.excluir(idCliente);
-
-        // Temporário: remove os pedidos ainda armazenados em memória.
-        repositoryMemoria.excluiPedidosCliente(idCliente);
-    }
+    // ================= EDITAR =================
 
     public void editarCliente(
-            int idCliente, String nome,
+            int id, String nome,
             String sobrenome, String telefone) {
-
-        nome = normalizar(nome);
-        sobrenome = normalizar(sobrenome);
-        telefone = normalizar(telefone);
-
-        validaCamposEditar(nome, sobrenome, telefone);
-
-        Cliente cliente = clienteDAO.buscarPorId(idCliente);
-
-        if (!nome.isBlank()) {
-            cliente.setNome(nome);
-        }
-
-        if (!sobrenome.isBlank()) {
-            cliente.setSobrenome(sobrenome);
-        }
-
-        if (!telefone.isBlank()) {
-            validarTelefoneDuplicadoEditar(idCliente, telefone);
-            cliente.setTelefone(telefone);
-        }
-
-        clienteDAO.atualizar(cliente);
-    }
-
-    public void validaCampos(
-            String nome, String sobrenome, String telefone) {
-
-        if (nome == null || nome.isBlank()) {
-            throw new CampoInvalidoException(
-                    "Nome não pode ser vazio"
-            );
-        }
-
-        if (sobrenome == null || sobrenome.isBlank()) {
-            throw new CampoInvalidoException(
-                    "Sobrenome não pode ser vazio"
-            );
-        }
-
-        if (telefone == null || telefone.isBlank()) {
-            throw new CampoInvalidoException(
-                    "Telefone não pode ser vazio"
-            );
-        }
-
-        validarTamanhoNome(nome, sobrenome);
-        validarFormatoTelefone(telefone);
-    }
-
-    public void validaCamposEditar(
-            String nome, String sobrenome, String telefone) {
 
         nome = normalizar(nome);
         sobrenome = normalizar(sobrenome);
@@ -120,125 +50,137 @@ public class ClienteService {
                 && telefone.isBlank()) {
 
             throw new CampoInvalidoException(
-                    "Algum campo deve ser atualizado"
+                    "Informe pelo menos um campo para editar."
             );
         }
 
-        validarTamanhoNome(nome, sobrenome);
+        Cliente cliente = clienteDAO.buscarPorId(id);
 
-        if (!telefone.isBlank()) {
-            validarFormatoTelefone(telefone);
+        if (nome.isBlank()) {
+            nome = cliente.getNome();
         }
+
+        if (sobrenome.isBlank()) {
+            sobrenome = cliente.getSobrenome();
+        }
+
+        if (telefone.isBlank()) {
+            telefone = cliente.getTelefone();
+        }
+
+        validarCampos(nome, sobrenome, telefone);
+
+        validarTelefoneDuplicado(telefone, id);
+
+        cliente.setNome(nome);
+        cliente.setSobrenome(sobrenome);
+        cliente.setTelefone(telefone);
+
+        clienteDAO.atualizar(cliente);
     }
 
-    private void validarTamanhoNome(
-            String nome, String sobrenome) {
+    // ================= EXCLUIR =================
 
-        if (nome.length() > 100) {
-            throw new CampoInvalidoException(
-                    "Nome deve ter no máximo 100 caracteres"
-            );
-        }
+    public void excluirCliente(int id) {
 
-        if (sobrenome.length() > 100) {
-            throw new CampoInvalidoException(
-                    "Sobrenome deve ter no máximo 100 caracteres"
-            );
-        }
+        clienteDAO.excluir(id);
     }
 
-    private void validarFormatoTelefone(String telefone) {
-
-        if (!telefone.matches("[0-9]{11}")) {
-            throw new CampoInvalidoException(
-                    "Telefone deve conter exatamente 11 números"
-            );
-        }
-    }
-
-    public void validarTelefoneDuplicado(String telefone) {
-
-        for (Cliente cliente : clienteDAO.filtrar("", telefone)) {
-
-            if (cliente.getTelefone().equals(telefone)) {
-
-                throw new CampoInvalidoException(
-                        "Já existe um cliente com esse telefone"
-                );
-            }
-        }
-    }
-
-    public void validarTelefoneDuplicadoEditar(
-            int id, String telefone) {
-
-        for (Cliente cliente : clienteDAO.filtrar("", telefone)) {
-
-            if (cliente.getTelefone().equals(telefone)
-                    && cliente.getId() != id) {
-
-                throw new CampoInvalidoException(
-                        "Já existe um cliente com esse telefone"
-                );
-            }
-        }
-    }
+    // ================= CONSULTAS =================
 
     public List<Cliente> mostrarClientes() {
+
         return clienteDAO.listarTodos();
     }
 
     public List<Cliente> filtrarClientes(
             String sobrenome, String telefone) {
 
-        sobrenome = normalizar(sobrenome);
         telefone = normalizar(telefone);
 
-        if (sobrenome.isBlank() && telefone.isBlank()) {
+        if (!telefone.isBlank()
+                && !telefone.matches("[0-9]{1,11}")) {
 
             throw new CampoInvalidoException(
-                    "Sobrenome e telefone não podem ser vazios"
+                    "Filtro de telefone deve conter até 11 números."
             );
         }
 
-        List<Cliente> resultado =
-                clienteDAO.filtrar(sobrenome, telefone);
-
-        if (resultado.isEmpty()) {
-
-            throw new ClienteNaoEncontradoException(
-                    "Nenhum cliente encontrado"
-            );
-        }
-
-        return resultado;
+        return clienteDAO.filtrar(
+                normalizar(sobrenome), telefone
+        );
     }
 
     public List<Cliente> buscarPorTelefone(String telefone) {
 
         telefone = normalizar(telefone);
 
-        if (telefone.isBlank()) {
+        if (telefone.isBlank()
+                || !telefone.matches("[0-9]{1,11}")) {
 
             throw new CampoInvalidoException(
-                    "Telefone não pode ser vazio"
+                    "Informe um telefone ou parte dele, somente números."
             );
         }
 
-        List<Cliente> resultado =
-                clienteDAO.filtrar("", telefone);
+        List<Cliente> clientes = clienteDAO.filtrar(
+                "", telefone
+        );
 
-        if (resultado.isEmpty()) {
+        if (clientes.isEmpty()) {
 
             throw new ClienteNaoEncontradoException(
-                    "Nenhum cliente encontrado"
+                    "Nenhum cliente encontrado."
             );
         }
 
-        return resultado;
+        return clientes;
     }
 
-    private String normalizar(String valor) {
-        return valor == null ? "" : valor.trim();
+    // ================= VALIDAÇÕES =================
+
+    private void validarCampos(
+            String nome, String sobrenome, String telefone) {
+
+        if (nome.isBlank() || sobrenome.isBlank()) {
+
+            throw new CampoInvalidoException(
+                    "Nome e sobrenome são obrigatórios."
+            );
+        }
+
+        if (nome.length() > 100 || sobrenome.length() > 100) {
+
+            throw new CampoInvalidoException(
+                    "Nome e sobrenome devem ter até 100 caracteres."
+            );
+        }
+
+        if (!telefone.matches("[0-9]{11}")) {
+
+            throw new CampoInvalidoException(
+                    "Telefone deve conter exatamente 11 números."
+            );
+        }
+    }
+
+    private void validarTelefoneDuplicado(
+            String telefone, int idIgnorado) {
+
+        for (Cliente cliente : clienteDAO.filtrar("", telefone)) {
+
+            if (cliente.getId() != idIgnorado
+                    && cliente.getTelefone().equals(telefone)) {
+
+                throw new CampoInvalidoException(
+                        "Já existe um cliente com esse telefone."
+                );
+            }
+        }
+    }
+
+    private String normalizar(String texto) {
+
+        return texto == null ? "" : texto.trim();
     }
 }

@@ -21,8 +21,10 @@ public class Triangulo extends Forma{
     }
 
     @Override
-    public String descricao(){
-        return "Triangulo - lado de: " + lado;
-    }
+    public String descricao() {
 
+        return String.format(
+                "Quadrado - Lado de: %.2f", lado
+        );
+    }
 }

@@ -3,18 +3,20 @@ package app;
 import controller.ClienteController;
 import controller.SaborController;
 import controller.PrecoController;
+import controller.PedidoController;
+import controller.StatusPedidoController;
 
 import dao.ClienteDAO;
 import dao.SaborDAO;
 import dao.PrecoDAO;
+import dao.PedidoDAO;
 import dao.DaoFactory;
-
-import repository.RepositoryMemoria;
 
 import service.ClienteService;
 import service.SaborService;
 import service.PrecoService;
 import service.PedidoService;
+import service.FormaFactory;
 
 import view.TelaPrincipal;
 
@@ -26,10 +28,6 @@ public class Main {
 
         SwingUtilities.invokeLater(() -> {
 
-            // Armazenamento temporário
-            RepositoryMemoria repositoryMemoria =
-                    new RepositoryMemoria();
-
             // DAOs
             ClienteDAO clienteDAO =
                     DaoFactory.getClienteDAO();
@@ -40,12 +38,16 @@ public class Main {
             PrecoDAO precoDAO =
                     DaoFactory.getPrecoDAO();
 
+            PedidoDAO pedidoDAO =
+                    DaoFactory.getPedidoDAO();
+
+            // Factory
+            FormaFactory formaFactory =
+                    new FormaFactory();
+
             // Services
             ClienteService clienteService =
-                    new ClienteService(
-                            clienteDAO,
-                            repositoryMemoria
-                    );
+                    new ClienteService(clienteDAO);
 
             SaborService saborService =
                     new SaborService(saborDAO);
@@ -55,8 +57,10 @@ public class Main {
 
             PedidoService pedidoService =
                     new PedidoService(
-                            repositoryMemoria,
-                            precoService
+                            pedidoDAO,
+                            saborDAO,
+                            precoService,
+                            formaFactory
                     );
 
             // Controllers
@@ -69,15 +73,24 @@ public class Main {
             PrecoController precoController =
                     new PrecoController(precoService);
 
+            PedidoController pedidoController =
+                    new PedidoController(
+                            clienteService,
+                            saborService,
+                            pedidoService
+                    );
+
+            StatusPedidoController statusPedidoController =
+                    new StatusPedidoController(pedidoService);
+
             // Interface principal
             TelaPrincipal telaPrincipal =
                     new TelaPrincipal(
                             clienteController,
                             saborController,
                             precoController,
-                            clienteService,
-                            saborService,
-                            pedidoService
+                            pedidoController,
+                            statusPedidoController
                     );
 
             telaPrincipal.setVisible(true);

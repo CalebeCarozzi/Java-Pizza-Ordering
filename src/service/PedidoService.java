@@ -1,45 +1,85 @@
 package service;
 
+import dao.PedidoDAO;
+import dao.SaborDAO;
 import exception.CampoInvalidoException;
 import model.*;
-import repository.RepositoryMemoria;
 
-import java.util.ArrayList;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
+import java.util.Locale;
 
 public class PedidoService {
 
-    private final RepositoryMemoria repositoryMemoria;
-    private final FormaFactory formaFactory;
+    private final PedidoDAO pedidoDAO;
+    private final SaborDAO saborDAO;
     private final PrecoService precoService;
+    private final FormaFactory formaFactory;
 
     public PedidoService(
-            RepositoryMemoria repositoryMemoria,
-            PrecoService precoService) {
+            PedidoDAO pedidoDAO,
+            SaborDAO saborDAO,
+            PrecoService precoService,
+            FormaFactory formaFactory) {
 
-        this.repositoryMemoria = repositoryMemoria;
+        this.pedidoDAO = pedidoDAO;
+        this.saborDAO = saborDAO;
         this.precoService = precoService;
-        this.formaFactory = new FormaFactory();
+        this.formaFactory = formaFactory;
     }
+
+    // ================= CRIAR PEDIDO =================
 
     public Pedido buscarOuCriarPedidoAberto(Cliente cliente) {
 
         validarCliente(cliente);
 
-        Pedido pedido =
-                repositoryMemoria.buscaPedidoAbertoPorCliente(cliente);
+        Pedido pedido = pedidoDAO.buscarAbertoPorCliente(
+                cliente.getId()
+        );
 
-        if (pedido == null) {
-
-            pedido = new Pedido(cliente);
-
-            pedido.atualizarPrecoTotal(getTabelaPreco());
-
-            repositoryMemoria.salvaPedido(pedido);
+        if (pedido != null) {
+            return pedido;
         }
+
+        return criarNovoPedido(cliente);
+    }
+
+    public Pedido criarNovoPedido(Cliente cliente) {
+
+        validarCliente(cliente);
+
+        Pedido pedido = new Pedido(cliente);
+
+        pedidoDAO.salvar(pedido);
 
         return pedido;
     }
+
+    // ================= CONSULTAS =================
+
+    public Pedido buscaPedidoPorId(int idPedido) {
+
+        validarId(idPedido);
+
+        return pedidoDAO.buscarPorId(idPedido);
+    }
+
+    public List<Pedido> listarPedidosPorCliente(Cliente cliente) {
+
+        validarCliente(cliente);
+
+        return pedidoDAO.listarPorCliente(cliente.getId());
+    }
+
+    public List<Pedido> listarPedidosPorSobrenomeCliente(
+            String sobrenome) {
+
+        return pedidoDAO.listarPorSobrenome(sobrenome);
+    }
+
+    // ================= ADICIONAR PIZZA =================
 
     public void adicionarPizzaPorDimensao(
             Pedido pedido,
@@ -49,17 +89,10 @@ public class PedidoService {
             Sabor sabor2,
             int quantidade) {
 
-        validarPedidoAberto(pedido);
-
-        ItemPedido item = criarItemPedido(
-                tipoForma, dimensao, false,
+        adicionarPizza(
+                pedido, tipoForma, dimensao, false,
                 sabor1, sabor2, quantidade
         );
-
-        TabelaPreco tabela = getTabelaPreco();
-
-        pedido.adicionaItem(item);
-        pedido.atualizarPrecoTotal(tabela);
     }
 
     public void adicionarPizzaPorArea(
@@ -70,73 +103,14 @@ public class PedidoService {
             Sabor sabor2,
             int quantidade) {
 
-        validarPedidoAberto(pedido);
-
-        ItemPedido item = criarItemPedido(
-                tipoForma, area, true,
+        adicionarPizza(
+                pedido, tipoForma, area, true,
                 sabor1, sabor2, quantidade
         );
-
-        TabelaPreco tabela = getTabelaPreco();
-
-        pedido.adicionaItem(item);
-        pedido.atualizarPrecoTotal(tabela);
     }
 
-    private ItemPedido criarItemPedido(
-            String tipoForma,
-            double valor,
-            boolean porArea,
-            Sabor sabor1,
-            Sabor sabor2,
-            int quantidade) {
-
-        validarTipoForma(tipoForma);
-        validarSabores(sabor1, sabor2);
-        validarQuantidade(quantidade);
-
-        Forma forma;
-
-        if (porArea) {
-            forma = criarFormaPorArea(tipoForma, valor);
-        } else {
-            forma = criarFormaPorDimensao(tipoForma, valor);
-        }
-
-        Pizza pizza = new Pizza(forma);
-
-        pizza.adicionaSabor(sabor1);
-
-        if (sabor2 != null) {
-            pizza.adicionaSabor(sabor2);
-        }
-
-        return new ItemPedido(pizza, quantidade);
-    }
-
-    public void removerItem(Pedido pedido, int indiceItem) {
-
-        validarPedidoAberto(pedido);
-
-        if (indiceItem < 0
-                || indiceItem >= pedido.getItens().size()) {
-
-            throw new CampoInvalidoException(
-                    "Item do pedido inválido."
-            );
-        }
-
-        TabelaPreco tabela = getTabelaPreco();
-
-        ItemPedido item = pedido.getItens().get(indiceItem);
-
-        pedido.removeItem(item);
-        pedido.atualizarPrecoTotal(tabela);
-    }
-
-    public void atualizarItem(
+    private void adicionarPizza(
             Pedido pedido,
-            int indiceItem,
             String tipoForma,
             double valor,
             boolean porArea,
@@ -146,275 +120,27 @@ public class PedidoService {
 
         validarPedidoAberto(pedido);
 
-        if (indiceItem < 0
-                || indiceItem >= pedido.getItens().size()) {
-
-            throw new CampoInvalidoException(
-                    "Item do pedido inválido."
-            );
-        }
-
-        ItemPedido novoItem = criarItemPedido(
+        ItemPedido item = criarItem(
                 tipoForma, valor, porArea,
                 sabor1, sabor2, quantidade
         );
 
-        TabelaPreco tabela = getTabelaPreco();
+        pedidoDAO.adicionarItem(
+                pedido.getIdPedido(), item
+        );
 
-        pedido.getItens().set(indiceItem, novoItem);
-        pedido.atualizarPrecoTotal(tabela);
+        recarregarPedido(pedido);
     }
 
-    public String calcularResultadoMedida(
+    // ================= CRIAR ITEM =================
+
+    private ItemPedido criarItem(
             String tipoForma,
             double valor,
-            boolean porArea) {
-
-        validarTipoForma(tipoForma);
-
-        Forma forma;
-
-        if (porArea) {
-
-            forma = criarFormaPorArea(tipoForma, valor);
-
-            if (forma instanceof Quadrado quadrado) {
-
-                return "Resultado: lado calculado: "
-                        + String.format("%.2f", quadrado.getLado())
-                        + " cm";
-            }
-
-            if (forma instanceof Circulo circulo) {
-
-                return "Resultado: raio calculado: "
-                        + String.format("%.2f", circulo.getRaio())
-                        + " cm";
-            }
-
-            if (forma instanceof Triangulo triangulo) {
-
-                return "Resultado: lado calculado: "
-                        + String.format("%.2f", triangulo.getLado())
-                        + " cm";
-            }
-        }
-
-        forma = criarFormaPorDimensao(tipoForma, valor);
-
-        return "Resultado: área calculada: "
-                + String.format("%.2f", forma.calculaArea())
-                + " cm²";
-    }
-
-    // ================= PREÇOS =================
-
-    public TabelaPreco getTabelaPreco() {
-
-        return precoService.getTabelaPreco();
-    }
-
-    public double calcularTotalPedido(Pedido pedido) {
-
-        validarPedido(pedido);
-
-        if (pedido.getEstadoPedido() == EstadoPedido.ABERTO) {
-
-            pedido.atualizarPrecoTotal(getTabelaPreco());
-        }
-
-        return pedido.getPrecoTotal();
-    }
-
-    // ================= ESTADOS =================
-
-    public void alterarEstadoPedido(
-            Pedido pedido,
-            EstadoPedido estadoPedido) {
-
-        validarPedido(pedido);
-
-        if (estadoPedido == null) {
-
-            throw new CampoInvalidoException(
-                    "Estado do pedido é obrigatório."
-            );
-        }
-
-        if (estadoPedido != EstadoPedido.ABERTO
-                && pedido.getItens().isEmpty()) {
-
-            throw new CampoInvalidoException(
-                    "Não é possível alterar o estado de um pedido vazio."
-            );
-        }
-
-        if (pedido.getEstadoPedido() == EstadoPedido.ABERTO) {
-
-            pedido.atualizarPrecoTotal(getTabelaPreco());
-        }
-
-        pedido.setEstadoPedido(estadoPedido);
-    }
-
-    // ================= CONSULTAS =================
-
-    public Pedido buscaPedidoPorId(int idPedido) {
-
-        if (idPedido <= 0) {
-
-            throw new CampoInvalidoException(
-                    "Id do pedido inválido."
-            );
-        }
-
-        return repositoryMemoria.buscaPedidoPorId(idPedido);
-    }
-
-    public List<Pedido> listarPedidosPorCliente(Cliente cliente) {
-
-        validarCliente(cliente);
-
-        return repositoryMemoria.retornaPedidosPorCliente(
-                cliente.getId()
-        );
-    }
-
-    public void excluirPedido(int idPedido) {
-
-        if (idPedido <= 0) {
-
-            throw new CampoInvalidoException(
-                    "Id do pedido inválido."
-            );
-        }
-
-        repositoryMemoria.excluiPedido(idPedido);
-    }
-
-    public Pedido criarNovoPedido(Cliente cliente) {
-
-        validarCliente(cliente);
-
-        Pedido pedidoAberto =
-                repositoryMemoria.buscaPedidoAbertoPorCliente(cliente);
-
-        if (pedidoAberto != null) {
-
-            throw new CampoInvalidoException(
-                    "Este cliente já possui um pedido em aberto."
-            );
-        }
-
-        Pedido pedido = new Pedido(cliente);
-
-        pedido.atualizarPrecoTotal(getTabelaPreco());
-
-        repositoryMemoria.salvaPedido(pedido);
-
-        return pedido;
-    }
-
-    // ================= FORMAS =================
-
-    public Forma criarFormaPorDimensao(
-            String tipoForma, double dimensao) {
-
-        validarTipoForma(tipoForma);
-
-        if (tipoForma.equalsIgnoreCase("QUADRADO")) {
-
-            return formaFactory.criarQuadradoPorLado(dimensao);
-        }
-
-        if (tipoForma.equalsIgnoreCase("TRIANGULO")) {
-
-            return formaFactory.criarTrianguloPorLado(dimensao);
-        }
-
-        if (tipoForma.equalsIgnoreCase("CIRCULO")) {
-
-            return formaFactory.criarCirculoPorRaio(dimensao);
-        }
-
-        throw new CampoInvalidoException("Forma inválida.");
-    }
-
-    public Forma criarFormaPorArea(
-            String tipoForma, double area) {
-
-        validarTipoForma(tipoForma);
-
-        if (tipoForma.equalsIgnoreCase("QUADRADO")) {
-
-            return formaFactory.criarQuadradoPorArea(area);
-        }
-
-        if (tipoForma.equalsIgnoreCase("TRIANGULO")) {
-
-            return formaFactory.criarTrianguloPorArea(area);
-        }
-
-        if (tipoForma.equalsIgnoreCase("CIRCULO")) {
-
-            return formaFactory.criarCirculoPorArea(area);
-        }
-
-        throw new CampoInvalidoException("Forma inválida.");
-    }
-
-    // ================= VALIDAÇÕES =================
-
-    public void validarCliente(Cliente cliente) {
-
-        if (cliente == null) {
-
-            throw new CampoInvalidoException(
-                    "O cliente é obrigatório."
-            );
-        }
-    }
-
-    public void validarPedido(Pedido pedido) {
-
-        if (pedido == null) {
-
-            throw new CampoInvalidoException(
-                    "O pedido é obrigatório."
-            );
-        }
-    }
-
-    public void validarPedidoAberto(Pedido pedido) {
-
-        validarPedido(pedido);
-
-        if (pedido.getEstadoPedido() != EstadoPedido.ABERTO) {
-
-            throw new CampoInvalidoException(
-                    "Só é possível alterar pedidos em aberto."
-            );
-        }
-    }
-
-    public void validarTipoForma(String tipoForma) {
-
-        if (tipoForma == null || tipoForma.isBlank()) {
-
-            throw new CampoInvalidoException(
-                    "Forma da pizza é obrigatória."
-            );
-        }
-
-        if (!tipoForma.equalsIgnoreCase("QUADRADO")
-                && !tipoForma.equalsIgnoreCase("CIRCULO")
-                && !tipoForma.equalsIgnoreCase("TRIANGULO")) {
-
-            throw new CampoInvalidoException("Forma inválida.");
-        }
-    }
-
-    public void validarQuantidade(int quantidade) {
+            boolean porArea,
+            Sabor sabor1,
+            Sabor sabor2,
+            int quantidade) {
 
         if (quantidade <= 0) {
 
@@ -422,47 +148,342 @@ public class PedidoService {
                     "Quantidade deve ser maior que zero."
             );
         }
-    }
 
-    public void validarSabores(Sabor sabor1, Sabor sabor2) {
+        validarSabores(sabor1, sabor2);
 
-        if (sabor1 == null) {
+        Forma forma = criarForma(
+                tipoForma, valor, porArea
+        );
+
+        Pizza pizza = new Pizza(forma);
+
+        pizza.adicionaSabor(
+                saborDAO.buscarPorId(sabor1.getIdSabor())
+        );
+
+        if (sabor2 != null) {
+
+            pizza.adicionaSabor(
+                    saborDAO.buscarPorId(sabor2.getIdSabor())
+            );
+        }
+
+        TabelaPreco tabela = precoService.getTabelaPreco();
+
+        BigDecimal preco = BigDecimal
+                .valueOf(pizza.calculaPreco(tabela))
+                .setScale(2, RoundingMode.HALF_UP);
+
+        if (preco.signum() <= 0) {
 
             throw new CampoInvalidoException(
-                    "O primeiro sabor é obrigatório."
+                    "Preço da pizza inválido."
+            );
+        }
+
+        ItemPedido item = new ItemPedido(
+                pizza, quantidade, preco
+        );
+
+        if (item.calculaSubTotal().compareTo(
+                new BigDecimal("9999999999.99")) > 0) {
+
+            throw new CampoInvalidoException(
+                    "Valor do item acima do limite permitido."
+            );
+        }
+
+        return item;
+    }
+
+    // ================= ATUALIZAR ITEM =================
+
+    public void atualizarItem(
+            Pedido pedido,
+            int indice,
+            String tipoForma,
+            double valor,
+            boolean porArea,
+            Sabor sabor1,
+            Sabor sabor2,
+            int quantidade) {
+
+        validarPedidoAberto(pedido);
+
+        ItemPedido antigo = obterItem(pedido, indice);
+
+        ItemPedido novo = criarItem(
+                tipoForma, valor, porArea,
+                sabor1, sabor2, quantidade
+        );
+
+        pedidoDAO.atualizarItem(
+                pedido.getIdPedido(),
+                antigo.getIdItemPedido(),
+                novo
+        );
+
+        recarregarPedido(pedido);
+    }
+
+    // ================= REMOVER ITEM =================
+
+    public void removerItem(Pedido pedido, int indice) {
+
+        validarPedidoAberto(pedido);
+
+        ItemPedido item = obterItem(pedido, indice);
+
+        pedidoDAO.removerItem(
+                pedido.getIdPedido(),
+                item.getIdItemPedido()
+        );
+
+        recarregarPedido(pedido);
+    }
+
+    private ItemPedido obterItem(Pedido pedido, int indice) {
+
+        if (indice < 0 || indice >= pedido.getItens().size()) {
+
+            throw new CampoInvalidoException(
+                    "Selecione um item válido."
+            );
+        }
+
+        return pedido.getItens().get(indice);
+    }
+
+    // ================= TOTAL =================
+
+    public BigDecimal calcularTotalPedido(Pedido pedido) {
+
+        validarPedido(pedido);
+
+        return pedido.getPrecoTotal();
+    }
+
+    // ================= FINALIZAR PEDIDO =================
+
+    public void finalizarPedido(Pedido pedido) {
+
+        validarPedido(pedido);
+
+        recarregarPedido(pedido);
+
+        validarPedidoAberto(pedido);
+
+        if (pedido.getItens().isEmpty()) {
+
+            throw new CampoInvalidoException(
+                    "Não é possível finalizar um pedido vazio."
+            );
+        }
+
+        // Os itens já foram salvos no banco.
+        // O estado será alterado pela tela de status.
+    }
+
+    // ================= ALTERAR ESTADO =================
+
+    public void alterarEstadoPedido(
+            Pedido pedido, EstadoPedido estado) {
+
+        validarPedido(pedido);
+
+        if (estado == null) {
+
+            throw new CampoInvalidoException(
+                    "Selecione um estado."
+            );
+        }
+
+        pedidoDAO.alterarEstado(
+                pedido.getIdPedido(), estado
+        );
+
+        recarregarPedido(pedido);
+    }
+
+    // ================= EXCLUIR PEDIDO =================
+
+    public void excluirPedido(int idPedido) {
+
+        validarId(idPedido);
+
+        pedidoDAO.excluir(idPedido);
+    }
+
+    // ================= RECARREGAR PEDIDO =================
+
+    private void recarregarPedido(Pedido pedido) {
+
+        Pedido atualizado = pedidoDAO.buscarPorId(
+                pedido.getIdPedido()
+        );
+
+        pedido.setCliente(atualizado.getCliente());
+
+        pedido.setItens(atualizado.getItens());
+
+        pedido.setEstadoPedido(
+                atualizado.getEstadoPedido()
+        );
+
+        pedido.setPrecoTotal(
+                atualizado.getPrecoTotal()
+        );
+    }
+
+    // ================= FORMAS =================
+
+    private Forma criarForma(
+            String tipoForma,
+            double valor,
+            boolean porArea) {
+
+        if (!Double.isFinite(valor) || valor <= 0) {
+
+            throw new CampoInvalidoException(
+                    "Informe uma medida válida."
+            );
+        }
+
+        if (tipoForma == null) {
+
+            throw new CampoInvalidoException(
+                    "Selecione uma forma."
+            );
+        }
+
+        String tipo = tipoForma.trim().toUpperCase(Locale.ROOT);
+
+        return switch (tipo) {
+
+            case "QUADRADO" -> porArea
+                    ? formaFactory.criarQuadradoPorArea(valor)
+                    : formaFactory.criarQuadradoPorLado(valor);
+
+            case "CIRCULO" -> porArea
+                    ? formaFactory.criarCirculoPorArea(valor)
+                    : formaFactory.criarCirculoPorRaio(valor);
+
+            case "TRIANGULO" -> porArea
+                    ? formaFactory.criarTrianguloPorArea(valor)
+                    : formaFactory.criarTrianguloPorLado(valor);
+
+            default -> throw new CampoInvalidoException(
+                    "Forma inválida."
+            );
+        };
+    }
+
+    public String calcularResultadoMedida(
+            String tipoForma,
+            double valor,
+            boolean porArea) {
+
+        Forma forma = criarForma(
+                tipoForma, valor, porArea
+        );
+
+        if (!porArea) {
+
+            return String.format(
+                    "Resultado: área calculada: %.2f cm²",
+                    forma.calculaArea()
+            );
+        }
+
+        if (forma instanceof Circulo circulo) {
+
+            return String.format(
+                    "Resultado: raio calculado: %.2f cm",
+                    circulo.getRaio()
+            );
+        }
+
+        if (forma instanceof Quadrado quadrado) {
+
+            return String.format(
+                    "Resultado: lado calculado: %.2f cm",
+                    quadrado.getLado()
+            );
+        }
+
+        if (forma instanceof Triangulo triangulo) {
+
+            return String.format(
+                    "Resultado: lado calculado: %.2f cm",
+                    triangulo.getLado()
+            );
+        }
+
+        throw new CampoInvalidoException("Forma inválida.");
+    }
+
+    // ================= VALIDAÇÕES =================
+
+    private void validarCliente(Cliente cliente) {
+
+        if (cliente == null || cliente.getId() <= 0) {
+
+            throw new CampoInvalidoException(
+                    "Selecione um cliente cadastrado."
+            );
+        }
+    }
+
+    private void validarPedido(Pedido pedido) {
+
+        if (pedido == null) {
+
+            throw new CampoInvalidoException(
+                    "Selecione um pedido."
+            );
+        }
+
+        validarId(pedido.getIdPedido());
+    }
+
+    private void validarId(int idPedido) {
+
+        if (idPedido <= 0) {
+
+            throw new CampoInvalidoException(
+                    "Pedido inválido."
+            );
+        }
+    }
+
+    private void validarPedidoAberto(Pedido pedido) {
+
+        validarPedido(pedido);
+
+        if (pedido.getEstadoPedido() != EstadoPedido.ABERTO) {
+
+            throw new CampoInvalidoException(
+                    "Somente pedidos abertos podem ser editados."
+            );
+        }
+    }
+
+    private void validarSabores(Sabor sabor1, Sabor sabor2) {
+
+        if (sabor1 == null || sabor1.getIdSabor() <= 0) {
+
+            throw new CampoInvalidoException(
+                    "Selecione o primeiro sabor."
             );
         }
 
         if (sabor2 != null
-                && sabor1.getIdSabor().equals(sabor2.getIdSabor())) {
+                && (sabor2.getIdSabor() <= 0
+                || sabor1.getIdSabor().equals(sabor2.getIdSabor()))) {
 
             throw new CampoInvalidoException(
-                    "Os dois sabores não podem ser iguais."
+                    "Selecione dois sabores diferentes."
             );
         }
-    }
-
-    public List<Pedido> listarPedidosPorSobrenomeCliente(
-            String sobrenome) {
-
-        List<Pedido> pedidosFiltrados = new ArrayList<>();
-
-        sobrenome = sobrenome == null
-                ? "" : sobrenome.trim().toLowerCase();
-
-        for (Pedido pedido : repositoryMemoria.retornaListaPedido()) {
-
-            Cliente cliente = pedido.getCliente();
-
-            if (sobrenome.isBlank()
-                    || cliente.getSobrenome()
-                    .toLowerCase()
-                    .contains(sobrenome)) {
-
-                pedidosFiltrados.add(pedido);
-            }
-        }
-
-        return pedidosFiltrados;
     }
 }

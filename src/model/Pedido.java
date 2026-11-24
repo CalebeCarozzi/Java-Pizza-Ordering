@@ -1,5 +1,6 @@
 package model;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -9,16 +10,18 @@ public class Pedido {
     private Cliente cliente;
     private List<ItemPedido> itens;
     private EstadoPedido estadoPedido;
-    private double precoTotal;
+    private BigDecimal precoTotal;
 
     public Pedido(Cliente cliente) {
+
         this.cliente = cliente;
         this.itens = new ArrayList<>();
         this.estadoPedido = EstadoPedido.ABERTO;
+        this.precoTotal = BigDecimal.ZERO;
     }
 
     public int getIdPedido() {
-        return this.idPedido;
+        return idPedido;
     }
 
     public void setIdPedido(int idPedido) {
@@ -26,7 +29,7 @@ public class Pedido {
     }
 
     public Cliente getCliente() {
-        return this.cliente;
+        return cliente;
     }
 
     public void setCliente(Cliente cliente) {
@@ -34,7 +37,7 @@ public class Pedido {
     }
 
     public List<ItemPedido> getItens() {
-        return this.itens;
+        return itens;
     }
 
     public void setItens(List<ItemPedido> itens) {
@@ -42,40 +45,41 @@ public class Pedido {
     }
 
     public EstadoPedido getEstadoPedido() {
-        return this.estadoPedido;
+        return estadoPedido;
     }
 
     public void setEstadoPedido(EstadoPedido estadoPedido) {
         this.estadoPedido = estadoPedido;
     }
 
-    public double getPrecoTotal() {
-        return this.precoTotal;
+    public BigDecimal getPrecoTotal() {
+        return precoTotal;
     }
 
-    public void setPrecoTotal(double precoTotal) {
+    public void setPrecoTotal(BigDecimal precoTotal) {
         this.precoTotal = precoTotal;
     }
 
-    public void atualizarPrecoTotal(TabelaPreco tabelaPreco) {
-        this.precoTotal = calculaTotal(tabelaPreco);
-    }
-
     public void adicionaItem(ItemPedido itemPedido) {
-        this.itens.add(itemPedido);
+        itens.add(itemPedido);
     }
 
     public void removeItem(ItemPedido itemPedido) {
-        this.itens.remove(itemPedido);
+        itens.remove(itemPedido);
     }
 
-    public double calculaTotal(TabelaPreco tabelaPreco) {
-        double total = 0;
+    public BigDecimal calculaTotal() {
 
-        for (ItemPedido itemAtual : this.itens) {
-            total += itemAtual.calculaSubTotal(tabelaPreco);
+        BigDecimal total = BigDecimal.ZERO;
+
+        for (ItemPedido item : itens) {
+            total = total.add(item.calculaSubTotal());
         }
 
         return total;
+    }
+
+    public void atualizarPrecoTotal() {
+        this.precoTotal = calculaTotal();
     }
 }

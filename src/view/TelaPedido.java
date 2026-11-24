@@ -1,29 +1,34 @@
 package view;
 
+import controller.PedidoController;
+
 import exception.CampoInvalidoException;
 import exception.ClienteNaoEncontradoException;
 import exception.SaborInvalidoException;
+import exception.PersistenciaException;
+
 import model.*;
-import service.ClienteService;
-import service.PedidoService;
-import service.SaborService;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
+
 import java.awt.*;
-import java.awt.event.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 
 public class TelaPedido extends JFrame {
 
-    private ClienteService clienteService;
-    private SaborService saborService;
-    private PedidoService pedidoService;
+    private final PedidoController controller;
 
     private Cliente clienteSelecionado;
     private Pedido pedidoSelecionado;
+
     private List<Cliente> clientesEncontrados = new ArrayList<>();
 
     private JTextField campoTelefoneCliente;
@@ -61,21 +66,25 @@ public class TelaPedido extends JFrame {
     private DefaultTableModel modeloPedidos;
     private DefaultTableModel modeloItens;
 
-    public TelaPedido(ClienteService clienteService, SaborService saborService, PedidoService pedidoService) {
-        this.clienteService = clienteService;
-        this.saborService = saborService;
-        this.pedidoService = pedidoService;
+    public TelaPedido(PedidoController controller) {
+
+        this.controller = controller;
 
         configurarJanela();
         inicializarComponentes();
         montarLayout();
         configurarEventos();
-        carregarSabores();
-        carregarTodosClientes();
+
+        executarAcao(this::carregarSabores);
+        executarAcao(this::carregarTodosClientes);
+
         atualizarTextoAjuda();
     }
 
+    // ================= JANELA =================
+
     private void configurarJanela() {
+
         setTitle("Cadastro de Pedido");
         setSize(1250, 760);
         setMinimumSize(new Dimension(1100, 650));
@@ -85,26 +94,51 @@ public class TelaPedido extends JFrame {
         setExtendedState(JFrame.MAXIMIZED_BOTH);
     }
 
+    // ================= COMPONENTES =================
+
     private void inicializarComponentes() {
+
         campoTelefoneCliente = new JTextField();
         campoValorMedida = new JTextField();
         campoQuantidade = new JTextField("1");
 
-        labelClienteNome = new JLabel("Cliente selecionado: nenhum");
-        labelClienteTelefone = new JLabel("Telefone: -");
-        labelPedidoAtual = new JLabel("Pedido atual: nenhum pedido selecionado");
-        labelAjudaMedida = new JLabel("Informe o lado/raio em cm ou a área em cm².");
-        labelResultadoCalculo = new JLabel(formatarResultado("Resultado: -"));
-        labelTotalPedido = new JLabel("Total do pedido: R$ 0.00");
-        labelTotalPedido.setFont(new Font("Arial", Font.BOLD, 20));
+        labelClienteNome =
+                new JLabel("Cliente selecionado: nenhum");
 
-        comboForma = new JComboBox<>(new String[]{"QUADRADO", "CIRCULO", "TRIANGULO"});
-        comboModoEntrada = new JComboBox<>(new String[]{"Por dimensão", "Por área"});
-        comboForma.setMaximumRowCount(3);
-        comboModoEntrada.setMaximumRowCount(2);
+        labelClienteTelefone =
+                new JLabel("Telefone: -");
+
+        labelPedidoAtual =
+                new JLabel("Pedido atual: nenhum");
+
+        labelAjudaMedida = new JLabel();
+
+        labelResultadoCalculo =
+                new JLabel("Resultado: -");
+
+        labelTotalPedido =
+                new JLabel("Total do pedido: R$ 0,00");
+
+        labelTotalPedido.setFont(
+                new Font("Arial", Font.BOLD, 20)
+        );
+
+        comboForma = new JComboBox<>(new String[]{
+                "QUADRADO", "CIRCULO", "TRIANGULO"
+        });
+
+        comboModoEntrada = new JComboBox<>(new String[]{
+                "Por dimensão", "Por área"
+        });
 
         comboSabor1 = new JComboBox<>();
         comboSabor2 = new JComboBox<>();
+
+        comboSabor1.addItem("Selecione o primeiro sabor");
+        comboSabor2.addItem("Sem segundo sabor");
+
+        configurarRenderizador(comboSabor1);
+        configurarRenderizador(comboSabor2);
 
         botaoBuscarCliente = new JButton("Buscar cliente");
         botaoNovoPedido = new JButton("Novo pedido");
@@ -117,200 +151,248 @@ public class TelaPedido extends JFrame {
         botaoFinalizarPedido = new JButton("Finalizar pedido");
         botaoVoltar = new JButton("Voltar");
 
-        modeloClientes = criarModelo("ID", "Nome", "Sobrenome", "Telefone");
-        modeloPedidos = criarModelo("ID", "Estado", "Itens", "Total");
-        modeloItens = criarModelo("Item", "Forma", "Sabores", "Área cm²", "Qtd.", "Subtotal");
+        modeloClientes = criarModelo(
+                "ID", "Nome", "Sobrenome", "Telefone"
+        );
+
+        modeloPedidos = criarModelo(
+                "ID", "Estado", "Itens", "Total"
+        );
+
+        modeloItens = criarModelo(
+                "Item", "Forma", "Sabores",
+                "Área cm²", "Qtd.",
+                "Preço unitário", "Subtotal"
+        );
 
         tabelaClientes = new JTable(modeloClientes);
         tabelaPedidos = new JTable(modeloPedidos);
         tabelaItens = new JTable(modeloItens);
 
-        tabelaClientes.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        tabelaPedidos.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        tabelaItens.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        tabelaClientes.setSelectionMode(
+                ListSelectionModel.SINGLE_SELECTION
+        );
+
+        tabelaPedidos.setSelectionMode(
+                ListSelectionModel.SINGLE_SELECTION
+        );
+
+        tabelaItens.setSelectionMode(
+                ListSelectionModel.SINGLE_SELECTION
+        );
     }
 
     private DefaultTableModel criarModelo(String... colunas) {
-        DefaultTableModel modelo = new DefaultTableModel() {
+
+        return new DefaultTableModel(colunas, 0) {
+
             @Override
-            public boolean isCellEditable(int row, int column) {
+            public boolean isCellEditable(int linha, int coluna) {
                 return false;
             }
         };
-
-        for (String coluna : colunas) {
-            modelo.addColumn(coluna);
-        }
-
-        return modelo;
     }
 
+    // ================= LAYOUT =================
+
     private void montarLayout() {
-        JPanel painelPrincipal = new JPanel(new BorderLayout(12, 12));
-        painelPrincipal.setBorder(new EmptyBorder(12, 12, 12, 12));
+
+        JPanel painelPrincipal =
+                new JPanel(new BorderLayout(12, 12));
+
+        painelPrincipal.setBorder(
+                new EmptyBorder(12, 12, 12, 12)
+        );
 
         JLabel titulo = new JLabel("Cadastro de Pedido");
-        titulo.setFont(new Font("Arial", Font.BOLD, 26));
 
-        painelPrincipal.add(titulo, BorderLayout.NORTH);
-        painelPrincipal.add(criarPainelCentral(), BorderLayout.CENTER);
-        painelPrincipal.add(criarPainelRodape(), BorderLayout.SOUTH);
+        titulo.setFont(
+                new Font("Arial", Font.BOLD, 26)
+        );
+
+        JPanel painelCentral =
+                new JPanel(new BorderLayout(12, 12));
+
+        painelCentral.add(
+                criarPainelCliente(), BorderLayout.NORTH
+        );
+
+        JPanel painelMeio =
+                new JPanel(new BorderLayout(12, 12));
+
+        painelMeio.add(
+                criarPainelPizza(), BorderLayout.WEST
+        );
+
+        painelMeio.add(
+                criarPainelPedidos(), BorderLayout.CENTER
+        );
+
+        painelCentral.add(
+                painelMeio, BorderLayout.CENTER
+        );
+
+        painelPrincipal.add(
+                titulo, BorderLayout.NORTH
+        );
+
+        painelPrincipal.add(
+                painelCentral, BorderLayout.CENTER
+        );
+
+        painelPrincipal.add(
+                criarPainelRodape(), BorderLayout.SOUTH
+        );
 
         setContentPane(painelPrincipal);
     }
 
-    private JPanel criarPainelCentral() {
-        JPanel painel = new JPanel(new BorderLayout(12, 12));
+    private JPanel criarPainelCliente() {
 
-        painel.add(criarPainelSuperior(), BorderLayout.NORTH);
-        painel.add(criarPainelMeio(), BorderLayout.CENTER);
+        JPanel painel =
+                new JPanel(new BorderLayout(8, 8));
 
-        return painel;
-    }
+        painel.setBorder(
+                BorderFactory.createTitledBorder("Cliente")
+        );
 
-    private JPanel criarPainelSuperior() {
-        JPanel painel = new JPanel(new BorderLayout(8, 8));
-        painel.setBorder(BorderFactory.createTitledBorder("Cliente e pedido"));
+        painel.setPreferredSize(
+                new Dimension(0, 220)
+        );
 
-        JPanel busca = new JPanel(new BorderLayout(8, 8));
-        busca.add(new JLabel("Telefone:"), BorderLayout.WEST);
-        busca.add(campoTelefoneCliente, BorderLayout.CENTER);
-        busca.add(botaoBuscarCliente, BorderLayout.EAST);
+        JPanel painelBusca =
+                new JPanel(new BorderLayout(8, 8));
 
-        JPanel dados = new JPanel(new GridLayout(3, 1, 4, 4));
-        dados.add(labelClienteNome);
-        dados.add(labelClienteTelefone);
-        dados.add(labelPedidoAtual);
+        painelBusca.add(
+                new JLabel("Telefone:"), BorderLayout.WEST
+        );
 
-        painel.add(busca, BorderLayout.NORTH);
-        painel.add(new JScrollPane(tabelaClientes), BorderLayout.CENTER);
-        painel.add(dados, BorderLayout.SOUTH);
-        painel.setPreferredSize(new Dimension(0, 220));
+        painelBusca.add(
+                campoTelefoneCliente, BorderLayout.CENTER
+        );
 
-        return painel;
-    }
+        painelBusca.add(
+                botaoBuscarCliente, BorderLayout.EAST
+        );
 
-    private JPanel criarPainelMeio() {
-        JPanel painel = new JPanel(new BorderLayout(12, 12));
+        JPanel painelDados =
+                new JPanel(new GridLayout(3, 1, 4, 4));
 
-        painel.add(criarPainelPizza(), BorderLayout.WEST);
-        painel.add(criarPainelDireito(), BorderLayout.CENTER);
+        painelDados.add(labelClienteNome);
+        painelDados.add(labelClienteTelefone);
+        painelDados.add(labelPedidoAtual);
+
+        painel.add(
+                painelBusca, BorderLayout.NORTH
+        );
+
+        painel.add(
+                new JScrollPane(tabelaClientes),
+                BorderLayout.CENTER
+        );
+
+        painel.add(
+                painelDados, BorderLayout.SOUTH
+        );
 
         return painel;
     }
 
     private JPanel criarPainelPizza() {
-        JPanel painel = new JPanel(new BorderLayout(0, 8));
-        painel.setBorder(BorderFactory.createTitledBorder("Dados da pizza"));
-        painel.setPreferredSize(new Dimension(370, 0));
 
-        JPanel painelCima = new JPanel(new BorderLayout(0, 10));
-        painelCima.setBorder(new EmptyBorder(8, 8, 8, 8));
+        JPanel painel =
+                new JPanel(new BorderLayout(10, 10));
 
-        painelCima.add(criarPainelCamposPizza(), BorderLayout.NORTH);
-        painelCima.add(criarPainelBotoesPizza(), BorderLayout.CENTER);
+        painel.setBorder(
+                BorderFactory.createTitledBorder("Dados da pizza")
+        );
 
-        painel.add(painelCima, BorderLayout.NORTH);
-        painel.add(criarPainelRegras(), BorderLayout.CENTER);
+        painel.setPreferredSize(
+                new Dimension(370, 0)
+        );
 
-        return painel;
-    }
+        JPanel painelCampos =
+                new JPanel(new GridLayout(0, 2, 6, 6));
 
-    private JPanel criarPainelCamposPizza() {
-        JPanel painel = new JPanel(new GridBagLayout());
+        painelCampos.add(new JLabel("Forma:"));
+        painelCampos.add(comboForma);
 
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(4, 4, 4, 4);
-        gbc.fill = GridBagConstraints.HORIZONTAL;
+        painelCampos.add(new JLabel("Modo de entrada:"));
+        painelCampos.add(comboModoEntrada);
 
-        int linha = 0;
+        JPanel painelValor =
+                new JPanel(new BorderLayout(5, 0));
 
-        adicionarLinhaFormulario(painel, gbc, linha++, "Forma:", comboForma);
-        adicionarLinhaFormulario(painel, gbc, linha++, "Entrada:", comboModoEntrada);
-        adicionarLinhaValor(painel, gbc, linha++);
+        painelValor.add(
+                campoValorMedida, BorderLayout.CENTER
+        );
 
-        gbc.gridx = 1;
-        gbc.gridy = linha++;
-        gbc.gridwidth = 1;
-        gbc.weightx = 1;
-        labelAjudaMedida.setPreferredSize(new Dimension(210, 25));
-        painel.add(labelAjudaMedida, gbc);
+        painelValor.add(
+                botaoCalcularMedida, BorderLayout.EAST
+        );
 
-        gbc.gridx = 1;
-        gbc.gridy = linha++;
-        labelResultadoCalculo.setPreferredSize(new Dimension(210, 45));
-        painel.add(labelResultadoCalculo, gbc);
+        painelCampos.add(new JLabel("Valor:"));
+        painelCampos.add(painelValor);
 
-        adicionarLinhaFormulario(painel, gbc, linha++, "Sabor 1:", comboSabor1);
-        adicionarLinhaFormulario(painel, gbc, linha++, "Sabor 2:", comboSabor2);
-        adicionarLinhaFormulario(painel, gbc, linha++, "Quantidade:", campoQuantidade);
+        painelCampos.add(new JLabel("Sabor 1:"));
+        painelCampos.add(comboSabor1);
 
-        return painel;
-    }
+        painelCampos.add(new JLabel("Sabor 2:"));
+        painelCampos.add(comboSabor2);
 
-    private void adicionarLinhaFormulario(JPanel painel, GridBagConstraints gbc, int linha, String texto, JComponent componente) {
-        JLabel label = new JLabel(texto);
-        label.setPreferredSize(new Dimension(85, 25));
+        painelCampos.add(new JLabel("Quantidade:"));
+        painelCampos.add(campoQuantidade);
 
-        componente.setPreferredSize(new Dimension(210, 30));
+        JPanel painelFormulario = new JPanel();
 
-        gbc.gridx = 0;
-        gbc.gridy = linha;
-        gbc.gridwidth = 1;
-        gbc.weightx = 0;
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        painel.add(label, gbc);
+        painelFormulario.setLayout(
+                new BoxLayout(painelFormulario, BoxLayout.Y_AXIS)
+        );
 
-        gbc.gridx = 1;
-        gbc.gridy = linha;
-        gbc.gridwidth = 1;
-        gbc.weightx = 1;
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        painel.add(componente, gbc);
-    }
+        painelFormulario.add(painelCampos);
+        painelFormulario.add(Box.createVerticalStrut(8));
+        painelFormulario.add(labelAjudaMedida);
+        painelFormulario.add(Box.createVerticalStrut(8));
+        painelFormulario.add(labelResultadoCalculo);
 
-    private void adicionarLinhaValor(JPanel painel, GridBagConstraints gbc, int linha) {
-        JLabel label = new JLabel("Valor:");
-        label.setPreferredSize(new Dimension(85, 25));
+        JPanel painelBotoes =
+                new JPanel(new GridLayout(5, 1, 0, 6));
 
-        campoValorMedida.setPreferredSize(new Dimension(120, 30));
-        botaoCalcularMedida.setPreferredSize(new Dimension(85, 30));
+        painelBotoes.add(botaoAdicionarPizza);
+        painelBotoes.add(botaoAtualizarItem);
+        painelBotoes.add(botaoRemoverItem);
+        painelBotoes.add(botaoCancelarPedido);
+        painelBotoes.add(botaoLimparCampos);
 
-        JPanel painelValor = new JPanel(new BorderLayout(6, 0));
-        painelValor.add(campoValorMedida, BorderLayout.CENTER);
-        painelValor.add(botaoCalcularMedida, BorderLayout.EAST);
+        JPanel painelSuperior =
+                new JPanel(new BorderLayout(10, 10));
 
-        gbc.gridx = 0;
-        gbc.gridy = linha;
-        gbc.gridwidth = 1;
-        gbc.weightx = 0;
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        painel.add(label, gbc);
+        painelSuperior.add(
+                painelFormulario, BorderLayout.NORTH
+        );
 
-        gbc.gridx = 1;
-        gbc.gridy = linha;
-        gbc.gridwidth = 1;
-        gbc.weightx = 1;
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        painel.add(painelValor, gbc);
-    }
+        painelSuperior.add(
+                painelBotoes, BorderLayout.CENTER
+        );
 
-    private JPanel criarPainelBotoesPizza() {
-        JPanel painel = new JPanel(new GridLayout(5, 1, 0, 6));
-        painel.setPreferredSize(new Dimension(320, 180));
+        painel.add(
+                painelSuperior, BorderLayout.NORTH
+        );
 
-        painel.add(botaoAdicionarPizza);
-        painel.add(botaoAtualizarItem);
-        painel.add(botaoRemoverItem);
-        painel.add(botaoCancelarPedido);
-        painel.add(botaoLimparCampos);
+        painel.add(
+                criarPainelRegras(), BorderLayout.CENTER
+        );
 
         return painel;
     }
 
     private JPanel criarPainelRegras() {
+
         JPanel painel = new JPanel(new BorderLayout());
-        painel.setBorder(BorderFactory.createTitledBorder("Regras de medida"));
+
+        painel.setBorder(
+                BorderFactory.createTitledBorder("Regras de medida")
+        );
 
         JTextArea texto = new JTextArea(
                 "Quadrado: lado entre 10 e 40 cm\n" +
@@ -331,195 +413,222 @@ public class TelaPedido extends JFrame {
         return painel;
     }
 
-    private JPanel criarPainelDireito() {
-        JPanel painel = new JPanel(new BorderLayout(10, 10));
+    private JPanel criarPainelPedidos() {
 
-        JPanel painelPedidos = new JPanel(new BorderLayout(8, 8));
-        painelPedidos.setBorder(BorderFactory.createTitledBorder("Pedidos do cliente"));
-        painelPedidos.setPreferredSize(new Dimension(0, 190));
+        JPanel painel =
+                new JPanel(new BorderLayout(10, 10));
 
-        painelPedidos.add(new JScrollPane(tabelaPedidos), BorderLayout.CENTER);
+        JPanel painelPedidos =
+                new JPanel(new BorderLayout(8, 8));
 
-        JPanel botoesPedido = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        botoesPedido.setPreferredSize(new Dimension(0, 45));
-        botoesPedido.add(botaoNovoPedido);
+        painelPedidos.setBorder(
+                BorderFactory.createTitledBorder(
+                        "Pedidos do cliente"
+                )
+        );
 
-        painelPedidos.add(botoesPedido, BorderLayout.SOUTH);
+        painelPedidos.setPreferredSize(
+                new Dimension(0, 190)
+        );
 
-        JPanel painelItens = new JPanel(new BorderLayout(8, 8));
-        painelItens.setBorder(BorderFactory.createTitledBorder("Itens do pedido selecionado"));
-        painelItens.add(new JScrollPane(tabelaItens), BorderLayout.CENTER);
+        painelPedidos.add(
+                new JScrollPane(tabelaPedidos),
+                BorderLayout.CENTER
+        );
 
-        JPanel inferiorItens = new JPanel(new BorderLayout());
-        inferiorItens.setPreferredSize(new Dimension(0, 45));
-        inferiorItens.add(labelTotalPedido, BorderLayout.EAST);
+        JPanel painelNovoPedido =
+                new JPanel(new FlowLayout(FlowLayout.LEFT));
 
-        painelItens.add(inferiorItens, BorderLayout.SOUTH);
+        painelNovoPedido.add(botaoNovoPedido);
 
-        painel.add(painelPedidos, BorderLayout.NORTH);
-        painel.add(painelItens, BorderLayout.CENTER);
+        painelPedidos.add(
+                painelNovoPedido, BorderLayout.SOUTH
+        );
+
+        JPanel painelItens =
+                new JPanel(new BorderLayout(8, 8));
+
+        painelItens.setBorder(
+                BorderFactory.createTitledBorder(
+                        "Itens do pedido selecionado"
+                )
+        );
+
+        painelItens.add(
+                new JScrollPane(tabelaItens),
+                BorderLayout.CENTER
+        );
+
+        JPanel painelTotal =
+                new JPanel(new FlowLayout(FlowLayout.RIGHT));
+
+        painelTotal.add(labelTotalPedido);
+
+        painelItens.add(
+                painelTotal, BorderLayout.SOUTH
+        );
+
+        painel.add(
+                painelPedidos, BorderLayout.NORTH
+        );
+
+        painel.add(
+                painelItens, BorderLayout.CENTER
+        );
 
         return painel;
     }
 
     private JPanel criarPainelRodape() {
+
         JPanel painel = new JPanel(new BorderLayout());
 
-        JLabel mensagem = new JLabel("Busque por parte do telefone, selecione o cliente e depois selecione o pedido.");
+        JLabel mensagem = new JLabel(
+                "Selecione um cliente, um pedido e adicione as pizzas."
+        );
 
-        JPanel botoes = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        botoes.add(botaoFinalizarPedido);
-        botoes.add(botaoVoltar);
+        JPanel painelBotoes =
+                new JPanel(new FlowLayout(FlowLayout.RIGHT));
+
+        painelBotoes.add(botaoFinalizarPedido);
+        painelBotoes.add(botaoVoltar);
 
         painel.add(mensagem, BorderLayout.WEST);
-        painel.add(botoes, BorderLayout.EAST);
+        painel.add(painelBotoes, BorderLayout.EAST);
 
         return painel;
     }
 
+    // ================= EVENTOS =================
+
     private void configurarEventos() {
-        botaoBuscarCliente.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                buscarClientes();
-            }
-        });
+
+        botaoBuscarCliente.addActionListener(
+                e -> executarAcao(this::buscarClientes)
+        );
+
+        campoTelefoneCliente.addActionListener(
+                e -> executarAcao(this::buscarClientes)
+        );
+
+        botaoNovoPedido.addActionListener(
+                e -> executarAcao(this::criarNovoPedido)
+        );
+
+        botaoCalcularMedida.addActionListener(
+                e -> executarAcao(this::calcularMedida)
+        );
+
+        botaoAdicionarPizza.addActionListener(
+                e -> executarAcao(this::adicionarPizza)
+        );
+
+        botaoAtualizarItem.addActionListener(
+                e -> executarAcao(this::atualizarItem)
+        );
+
+        botaoRemoverItem.addActionListener(
+                e -> executarAcao(this::removerItem)
+        );
+
+        botaoCancelarPedido.addActionListener(
+                e -> executarAcao(this::cancelarPedido)
+        );
+
+        botaoFinalizarPedido.addActionListener(
+                e -> executarAcao(this::finalizarPedido)
+        );
+
+        botaoLimparCampos.addActionListener(
+                e -> limparCamposPizza()
+        );
+
+        botaoVoltar.addActionListener(
+                e -> dispose()
+        );
+
+        comboForma.addActionListener(
+                e -> atualizarTextoAjuda()
+        );
+
+        comboModoEntrada.addActionListener(
+                e -> atualizarTextoAjuda()
+        );
 
         tabelaClientes.addMouseListener(new MouseAdapter() {
+
             @Override
             public void mouseClicked(MouseEvent e) {
-                selecionarCliente();
+
+                executarAcao(TelaPedido.this::selecionarCliente);
             }
         });
 
         tabelaPedidos.addMouseListener(new MouseAdapter() {
+
             @Override
             public void mouseClicked(MouseEvent e) {
-                selecionarPedido();
+
+                executarAcao(TelaPedido.this::selecionarPedido);
             }
         });
 
         tabelaItens.addMouseListener(new MouseAdapter() {
+
             @Override
             public void mouseClicked(MouseEvent e) {
+
                 if (e.getClickCount() == 2) {
-                    carregarItemNosCampos();
+
+                    executarAcao(
+                            TelaPedido.this::carregarItemNosCampos
+                    );
                 }
-            }
-        });
-
-        botaoNovoPedido.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                criarNovoPedido();
-            }
-        });
-
-        botaoCalcularMedida.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                calcularMedida();
-            }
-        });
-
-        botaoAdicionarPizza.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                adicionarPizza();
-            }
-        });
-
-        botaoAtualizarItem.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                atualizarItem();
-            }
-        });
-
-        botaoRemoverItem.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                removerItem();
-            }
-        });
-
-        botaoCancelarPedido.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                cancelarPedido();
-            }
-        });
-
-        botaoLimparCampos.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                limparCamposPizza();
-            }
-        });
-
-        botaoFinalizarPedido.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                finalizarPedido();
-            }
-        });
-
-        botaoVoltar.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                dispose();
-            }
-        });
-
-        comboForma.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                atualizarTextoAjuda();
-            }
-        });
-
-        comboModoEntrada.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                atualizarTextoAjuda();
             }
         });
     }
 
+    // ================= SABORES =================
+
     private void carregarSabores() {
-        try {
-            comboSabor1.removeAllItems();
-            comboSabor2.removeAllItems();
 
-            comboSabor1.addItem("Selecione o primeiro sabor");
-            comboSabor2.addItem("Sem segundo sabor");
+        List<Sabor> sabores = controller.listarSabores();
 
-            for (Sabor sabor : saborService.listarSabores()) {
-                comboSabor1.addItem(sabor);
-                comboSabor2.addItem(sabor);
-            }
+        comboSabor1.removeAllItems();
+        comboSabor2.removeAllItems();
 
-            configurarRenderizador(comboSabor1);
-            configurarRenderizador(comboSabor2);
+        comboSabor1.addItem("Selecione o primeiro sabor");
+        comboSabor2.addItem("Sem segundo sabor");
 
-        } catch (CampoInvalidoException | SaborInvalidoException e) {
-            JOptionPane.showMessageDialog(this, e.getMessage());
-        } catch (RuntimeException e) {
-            JOptionPane.showMessageDialog(this, "Erro inesperado ao carregar sabores.");
+        for (Sabor sabor : sabores) {
+
+            comboSabor1.addItem(sabor);
+            comboSabor2.addItem(sabor);
         }
     }
 
     private void configurarRenderizador(JComboBox<Object> combo) {
-        combo.setRenderer(new DefaultListCellRenderer() {
-            @Override
-            public Component getListCellRendererComponent(JList<?> lista, Object valor, int indice, boolean selecionado, boolean foco) {
-                super.getListCellRendererComponent(lista, valor, indice, selecionado, foco);
 
-                if (valor instanceof Sabor) {
-                    Sabor sabor = (Sabor) valor;
-                    setText(sabor.getNome() + " (" + sabor.getTipoPizza() + ")");
-                } else if (valor != null) {
-                    setText(valor.toString());
+        combo.setRenderer(new DefaultListCellRenderer() {
+
+            @Override
+            public Component getListCellRendererComponent(
+                    JList<?> lista,
+                    Object valor,
+                    int indice,
+                    boolean selecionado,
+                    boolean foco) {
+
+                super.getListCellRendererComponent(
+                        lista, valor, indice, selecionado, foco
+                );
+
+                if (valor instanceof Sabor sabor) {
+
+                    setText(
+                            sabor.getNome()
+                                    + " (" + sabor.getTipoPizza() + ")"
+                    );
                 }
 
                 return this;
@@ -527,502 +636,650 @@ public class TelaPedido extends JFrame {
         });
     }
 
+    // ================= CLIENTES =================
+
     private void carregarTodosClientes() {
-        try {
-            clientesEncontrados = clienteService.mostrarClientes();
 
-            modeloClientes.setRowCount(0);
+        clientesEncontrados = controller.mostrarClientes();
 
-            for (Cliente cliente : clientesEncontrados) {
-                modeloClientes.addRow(new Object[]{
-                        cliente.getId(),
-                        cliente.getNome(),
-                        cliente.getSobrenome(),
-                        cliente.getTelefone()
-                });
-            }
-
-        } catch (CampoInvalidoException | ClienteNaoEncontradoException e) {
-            JOptionPane.showMessageDialog(this, e.getMessage());
-        } catch (RuntimeException e) {
-            JOptionPane.showMessageDialog(this, "Erro inesperado ao carregar clientes.");
-        }
+        carregarTabelaClientes();
     }
 
     private void buscarClientes() {
-        try {
-            String telefone = campoTelefoneCliente.getText();
 
-            if (telefone == null || telefone.isBlank()) {
-                carregarTodosClientes();
-                limparClienteEPedidoSelecionado();
-                return;
-            }
+        limparClienteEPedidoSelecionado();
+        limparCamposPizza();
 
-            clientesEncontrados = clienteService.buscarPorTelefone(telefone);
+        clientesEncontrados = new ArrayList<>();
 
-            modeloClientes.setRowCount(0);
+        modeloClientes.setRowCount(0);
 
-            for (Cliente cliente : clientesEncontrados) {
-                modeloClientes.addRow(new Object[]{
-                        cliente.getId(),
-                        cliente.getNome(),
-                        cliente.getSobrenome(),
-                        cliente.getTelefone()
-                });
-            }
+        String telefone = campoTelefoneCliente.getText().trim();
 
-            limparClienteEPedidoSelecionado();
+        if (telefone.isBlank()) {
 
-        } catch (CampoInvalidoException | ClienteNaoEncontradoException e) {
-            JOptionPane.showMessageDialog(this, e.getMessage());
-        } catch (RuntimeException e) {
-            JOptionPane.showMessageDialog(this, "Erro inesperado ao buscar clientes.");
+            carregarTodosClientes();
+
+        } else {
+
+            clientesEncontrados =
+                    controller.buscarPorTelefone(telefone);
+
+            carregarTabelaClientes();
+        }
+    }
+
+    private void carregarTabelaClientes() {
+
+        modeloClientes.setRowCount(0);
+
+        for (Cliente cliente : clientesEncontrados) {
+
+            modeloClientes.addRow(new Object[]{
+                    cliente.getId(),
+                    cliente.getNome(),
+                    cliente.getSobrenome(),
+                    cliente.getTelefone()
+            });
         }
     }
 
     private void selecionarCliente() {
-        try {
-            int linha = tabelaClientes.getSelectedRow();
 
-            if (linha == -1) {
-                return;
-            }
+        int linha = tabelaClientes.getSelectedRow();
 
-            int idCliente = Integer.parseInt(modeloClientes.getValueAt(linha, 0).toString());
-
-            clienteSelecionado = null;
-
-            for (Cliente cliente : clientesEncontrados) {
-                if (cliente.getId().equals(idCliente)) {
-                    clienteSelecionado = cliente;
-                    break;
-                }
-            }
-
-            if (clienteSelecionado == null) {
-                throw new CampoInvalidoException("Cliente não encontrado.");
-            }
-
-            labelClienteNome.setText("Cliente selecionado: " + clienteSelecionado.getNome() + " " + clienteSelecionado.getSobrenome());
-            labelClienteTelefone.setText("Telefone: " + clienteSelecionado.getTelefone());
-
-            pedidoSelecionado = pedidoService.buscarOuCriarPedidoAberto(clienteSelecionado);
-
-            carregarTabelaPedidos();
-            selecionarPedidoNaTabela(pedidoSelecionado.getIdPedido());
-            carregarTabelaItens();
-            atualizarPedidoAtual();
-
-        } catch (CampoInvalidoException | ClienteNaoEncontradoException e) {
-            JOptionPane.showMessageDialog(this, e.getMessage());
-        } catch (RuntimeException e) {
-            JOptionPane.showMessageDialog(this, "Erro inesperado ao selecionar cliente.");
+        if (linha == -1) {
+            return;
         }
+
+        limparClienteEPedidoSelecionado();
+        limparCamposPizza();
+
+        clienteSelecionado =
+                clientesEncontrados.get(
+                        tabelaClientes.convertRowIndexToModel(linha)
+                );
+
+        labelClienteNome.setText(
+                "Cliente selecionado: "
+                        + clienteSelecionado.getNome()
+                        + " "
+                        + clienteSelecionado.getSobrenome()
+        );
+
+        labelClienteTelefone.setText(
+                "Telefone: " + clienteSelecionado.getTelefone()
+        );
+
+        pedidoSelecionado =
+                controller.buscarOuCriarPedidoAberto(
+                        clienteSelecionado
+                );
+
+        atualizarTabelasDepoisDeAlterar();
     }
 
+    // ================= PEDIDOS =================
+
     private void criarNovoPedido() {
-        try {
-            validarClienteSelecionado();
 
-            pedidoSelecionado = pedidoService.criarNovoPedido(clienteSelecionado);
+        validarClienteSelecionado();
 
-            carregarTabelaPedidos();
-            selecionarPedidoNaTabela(pedidoSelecionado.getIdPedido());
-            carregarTabelaItens();
-            atualizarPedidoAtual();
+        pedidoSelecionado =
+                controller.criarNovoPedido(clienteSelecionado);
 
-            JOptionPane.showMessageDialog(this, "Novo pedido criado com sucesso.");
+        atualizarTabelasDepoisDeAlterar();
+        limparCamposPizza();
 
-        } catch (CampoInvalidoException | ClienteNaoEncontradoException e) {
-            JOptionPane.showMessageDialog(this, e.getMessage());
-        } catch (RuntimeException e) {
-            JOptionPane.showMessageDialog(this, "Erro inesperado ao criar novo pedido.");
-        }
+        JOptionPane.showMessageDialog(
+                this, "Novo pedido criado com sucesso."
+        );
     }
 
     private void selecionarPedido() {
-        try {
-            int linha = tabelaPedidos.getSelectedRow();
 
-            if (linha == -1) {
-                return;
-            }
+        int linha = tabelaPedidos.getSelectedRow();
 
-            int idPedido = Integer.parseInt(modeloPedidos.getValueAt(linha, 0).toString());
-
-            pedidoSelecionado = pedidoService.buscaPedidoPorId(idPedido);
-
-            carregarTabelaItens();
-            atualizarPedidoAtual();
-
-        } catch (CampoInvalidoException e) {
-            JOptionPane.showMessageDialog(this, e.getMessage());
-        } catch (RuntimeException e) {
-            JOptionPane.showMessageDialog(this, "Erro inesperado ao selecionar pedido.");
+        if (linha == -1) {
+            return;
         }
+
+        linha = tabelaPedidos.convertRowIndexToModel(linha);
+
+        int idPedido = Integer.parseInt(
+                modeloPedidos.getValueAt(linha, 0).toString()
+        );
+
+        pedidoSelecionado = null;
+
+        carregarTabelaItens();
+        atualizarPedidoAtual();
+        limparCamposPizza();
+
+        pedidoSelecionado =
+                controller.buscaPedidoPorId(idPedido);
+
+        carregarTabelaItens();
+        atualizarPedidoAtual();
     }
 
     private void carregarTabelaPedidos() {
-        try {
-            modeloPedidos.setRowCount(0);
 
-            if (clienteSelecionado == null) {
-                return;
-            }
+        modeloPedidos.setRowCount(0);
 
-            for (Pedido pedido : pedidoService.listarPedidosPorCliente(clienteSelecionado)) {
-                modeloPedidos.addRow(new Object[]{
-                        pedido.getIdPedido(),
-                        pedido.getEstadoPedido(),
-                        pedido.getItens().size(),
-                        "R$ " + String.format("%.2f", pedidoService.calcularTotalPedido(pedido))
-                });
-            }
+        if (clienteSelecionado == null) {
+            return;
+        }
 
-        } catch (CampoInvalidoException | ClienteNaoEncontradoException e) {
-            JOptionPane.showMessageDialog(this, e.getMessage());
-        } catch (RuntimeException e) {
-            JOptionPane.showMessageDialog(this, "Erro inesperado ao carregar pedidos.");
+        List<Pedido> pedidos =
+                controller.listarPedidosPorCliente(
+                        clienteSelecionado
+                );
+
+        for (Pedido pedido : pedidos) {
+
+            modeloPedidos.addRow(new Object[]{
+                    pedido.getIdPedido(),
+                    pedido.getEstadoPedido(),
+                    pedido.getItens().size(),
+                    formatarPreco(
+                            controller.calcularTotalPedido(pedido)
+                    )
+            });
         }
     }
 
-    private void carregarTabelaItens() {
-        try {
-            modeloItens.setRowCount(0);
+    private void selecionarPedidoNaTabela(int idPedido) {
 
-            if (pedidoSelecionado == null) {
-                labelTotalPedido.setText("Total do pedido: R$ 0.00");
+        for (int i = 0; i < modeloPedidos.getRowCount(); i++) {
+
+            int idAtual = Integer.parseInt(
+                    modeloPedidos.getValueAt(i, 0).toString()
+            );
+
+            if (idAtual == idPedido) {
+
+                int linha = tabelaPedidos.convertRowIndexToView(i);
+
+                tabelaPedidos.setRowSelectionInterval(linha, linha);
+
                 return;
             }
-
-            int numero = 1;
-
-            for (ItemPedido item : pedidoSelecionado.getItens()) {
-                modeloItens.addRow(new Object[]{
-                        numero,
-                        item.getPizza().getForma().descricao(),
-                        montarSabores(item),
-                        String.format("%.2f", item.getPizza().calculaArea()),
-                        item.getQuantidade(),
-                        "R$ " + String.format("%.2f", item.calculaSubTotal(pedidoService.getTabelaPreco()))
-                });
-
-                numero++;
-            }
-
-            labelTotalPedido.setText("Total do pedido: R$ " + String.format("%.2f", pedidoService.calcularTotalPedido(pedidoSelecionado)));
-
-        } catch (CampoInvalidoException | SaborInvalidoException e) {
-            JOptionPane.showMessageDialog(this, e.getMessage());
-        } catch (RuntimeException e) {
-            JOptionPane.showMessageDialog(this, "Erro inesperado ao carregar itens do pedido.");
         }
+    }
+
+    // ================= ITENS =================
+
+    private void carregarTabelaItens() {
+
+        modeloItens.setRowCount(0);
+
+        if (pedidoSelecionado == null) {
+
+            labelTotalPedido.setText(
+                    "Total do pedido: R$ 0,00"
+            );
+
+            return;
+        }
+
+        int numero = 1;
+
+        for (ItemPedido item : pedidoSelecionado.getItens()) {
+
+            modeloItens.addRow(new Object[]{
+                    numero,
+                    item.getPizza().getForma().descricao(),
+                    montarSabores(item),
+                    String.format(
+                            "%.2f", item.getPizza().calculaArea()
+                    ),
+                    item.getQuantidade(),
+                    formatarPreco(item.getPrecoUnitario()),
+                    formatarPreco(item.calculaSubTotal())
+            });
+
+            numero++;
+        }
+
+        labelTotalPedido.setText(
+                "Total do pedido: "
+                        + formatarPreco(
+                        controller.calcularTotalPedido(
+                                pedidoSelecionado
+                        )
+                )
+        );
     }
 
     private void calcularMedida() {
-        try {
-            String resultado = pedidoService.calcularResultadoMedida(
-                    obterForma(),
-                    converterDouble(campoValorMedida.getText()),
-                    entradaPorArea()
-            );
 
-            labelResultadoCalculo.setText(formatarResultado(resultado));
+        String resultado = controller.calcularResultadoMedida(
+                obterForma(),
+                converterDouble(campoValorMedida.getText()),
+                entradaPorArea()
+        );
 
-        } catch (CampoInvalidoException e) {
-            JOptionPane.showMessageDialog(this, e.getMessage());
-        } catch (RuntimeException e) {
-            JOptionPane.showMessageDialog(this, "Erro inesperado ao calcular medida.");
-        }
+        labelResultadoCalculo.setText(
+                "<html>" + resultado + "</html>"
+        );
     }
+
+    // ================= ADICIONAR PIZZA =================
 
     private void adicionarPizza() {
-        try {
-            validarPedidoSelecionado();
 
-            if (entradaPorArea()) {
-                pedidoService.adicionarPizzaPorArea(
-                        pedidoSelecionado,
-                        obterForma(),
-                        converterDouble(campoValorMedida.getText()),
-                        obterSabor1(),
-                        obterSabor2(),
-                        converterInteiro(campoQuantidade.getText())
-                );
-            } else {
-                pedidoService.adicionarPizzaPorDimensao(
-                        pedidoSelecionado,
-                        obterForma(),
-                        converterDouble(campoValorMedida.getText()),
-                        obterSabor1(),
-                        obterSabor2(),
-                        converterInteiro(campoQuantidade.getText())
-                );
-            }
+        validarPedidoSelecionado();
 
-            atualizarTabelasDepoisDeAlterar();
-            limparCamposPizza();
+        String forma = obterForma();
 
-            JOptionPane.showMessageDialog(this, "Pizza adicionada ao pedido.");
+        double valor = converterDouble(
+                campoValorMedida.getText()
+        );
 
-        } catch (CampoInvalidoException | SaborInvalidoException e) {
-            JOptionPane.showMessageDialog(this, e.getMessage());
-        } catch (RuntimeException e) {
-            JOptionPane.showMessageDialog(this, "Erro inesperado ao adicionar pizza.");
-        }
-    }
+        Sabor sabor1 = obterSabor1();
+        Sabor sabor2 = obterSabor2();
 
-    private void atualizarItem() {
-        try {
-            validarPedidoSelecionado();
+        int quantidade = converterInteiro(
+                campoQuantidade.getText()
+        );
 
-            int linha = tabelaItens.getSelectedRow();
+        if (entradaPorArea()) {
 
-            if (linha == -1) {
-                throw new CampoInvalidoException("Selecione um item para atualizar.");
-            }
-
-            pedidoService.atualizarItem(
+            controller.adicionarPizzaPorArea(
                     pedidoSelecionado,
-                    linha,
-                    obterForma(),
-                    converterDouble(campoValorMedida.getText()),
-                    entradaPorArea(),
-                    obterSabor1(),
-                    obterSabor2(),
-                    converterInteiro(campoQuantidade.getText())
+                    forma,
+                    valor,
+                    sabor1,
+                    sabor2,
+                    quantidade
             );
 
-            atualizarTabelasDepoisDeAlterar();
-            limparCamposPizza();
+        } else {
 
-            JOptionPane.showMessageDialog(this, "Item atualizado.");
-
-        } catch (CampoInvalidoException | SaborInvalidoException e) {
-            JOptionPane.showMessageDialog(this, e.getMessage());
-        } catch (RuntimeException e) {
-            JOptionPane.showMessageDialog(this, "Erro inesperado ao atualizar item.");
-        }
-    }
-
-    private void removerItem() {
-        try {
-            validarPedidoSelecionado();
-
-            int linha = tabelaItens.getSelectedRow();
-
-            if (linha == -1) {
-                throw new CampoInvalidoException("Selecione um item para remover.");
-            }
-
-            pedidoService.removerItem(pedidoSelecionado, linha);
-
-            atualizarTabelasDepoisDeAlterar();
-            limparCamposPizza();
-
-            JOptionPane.showMessageDialog(this, "Item removido.");
-
-        } catch (CampoInvalidoException e) {
-            JOptionPane.showMessageDialog(this, e.getMessage());
-        } catch (RuntimeException e) {
-            JOptionPane.showMessageDialog(this, "Erro inesperado ao remover item.");
-        }
-    }
-
-    private void cancelarPedido() {
-        try {
-            validarPedidoSelecionado();
-
-            int opcao = JOptionPane.showConfirmDialog(
-                    this,
-                    "Deseja cancelar/excluir o pedido selecionado?",
-                    "Confirmação",
-                    JOptionPane.YES_NO_OPTION
+            controller.adicionarPizzaPorDimensao(
+                    pedidoSelecionado,
+                    forma,
+                    valor,
+                    sabor1,
+                    sabor2,
+                    quantidade
             );
-
-            if (opcao == JOptionPane.YES_OPTION) {
-                pedidoService.excluirPedido(pedidoSelecionado.getIdPedido());
-
-                pedidoSelecionado = null;
-
-                carregarTabelaPedidos();
-                carregarTabelaItens();
-                atualizarPedidoAtual();
-
-                JOptionPane.showMessageDialog(this, "Pedido cancelado.");
-            }
-
-        } catch (CampoInvalidoException e) {
-            JOptionPane.showMessageDialog(this, e.getMessage());
-        } catch (RuntimeException e) {
-            JOptionPane.showMessageDialog(this, "Erro inesperado ao cancelar pedido.");
         }
-    }
 
-    private void finalizarPedido() {
-        try {
-            validarPedidoSelecionado();
-
-            if (pedidoSelecionado.getItens().isEmpty()) {
-                throw new CampoInvalidoException("Não é possível finalizar um pedido vazio.");
-            }
-
-            JOptionPane.showMessageDialog(this, "Pedido finalizado. O status poderá ser alterado na tela de status.");
-
-            limparTelaDepoisDeFinalizarPedido();
-
-        } catch (CampoInvalidoException e) {
-            JOptionPane.showMessageDialog(this, e.getMessage());
-        } catch (RuntimeException e) {
-            JOptionPane.showMessageDialog(this, "Erro inesperado ao finalizar pedido.");
-        }
-    }
-
-    private void limparTelaDepoisDeFinalizarPedido() {
-        campoTelefoneCliente.setText("");
-
-        clienteSelecionado = null;
-        pedidoSelecionado = null;
-
-        labelClienteNome.setText("Cliente selecionado: nenhum");
-        labelClienteTelefone.setText("Telefone: -");
-        labelPedidoAtual.setText("Pedido atual: nenhum pedido selecionado");
-
-        modeloPedidos.setRowCount(0);
-        modeloItens.setRowCount(0);
-
-        labelTotalPedido.setText("Total do pedido: R$ 0.00");
-
+        atualizarTabelasDepoisDeAlterar();
         limparCamposPizza();
 
+        JOptionPane.showMessageDialog(
+                this, "Pizza adicionada ao pedido."
+        );
+    }
+
+    // ================= ATUALIZAR ITEM =================
+
+    private void atualizarItem() {
+
+        validarPedidoSelecionado();
+
+        int linha = obterLinhaItemSelecionado();
+
+        controller.atualizarItem(
+                pedidoSelecionado,
+                linha,
+                obterForma(),
+                converterDouble(campoValorMedida.getText()),
+                entradaPorArea(),
+                obterSabor1(),
+                obterSabor2(),
+                converterInteiro(campoQuantidade.getText())
+        );
+
+        atualizarTabelasDepoisDeAlterar();
+        limparCamposPizza();
+
+        JOptionPane.showMessageDialog(
+                this, "Item atualizado com sucesso."
+        );
+    }
+
+    // ================= REMOVER ITEM =================
+
+    private void removerItem() {
+
+        validarPedidoSelecionado();
+
+        int linha = obterLinhaItemSelecionado();
+
+        controller.removerItem(
+                pedidoSelecionado, linha
+        );
+
+        atualizarTabelasDepoisDeAlterar();
+        limparCamposPizza();
+
+        JOptionPane.showMessageDialog(
+                this, "Item removido com sucesso."
+        );
+    }
+
+    private int obterLinhaItemSelecionado() {
+
+        int linha = tabelaItens.getSelectedRow();
+
+        if (linha == -1) {
+
+            throw new CampoInvalidoException(
+                    "Selecione um item na tabela."
+            );
+        }
+
+        return tabelaItens.convertRowIndexToModel(linha);
+    }
+
+    // ================= CARREGAR ITEM =================
+
+    private void carregarItemNosCampos() {
+
+        if (pedidoSelecionado == null) {
+            return;
+        }
+
+        int linha = obterLinhaItemSelecionado();
+
+        ItemPedido item =
+                pedidoSelecionado.getItens().get(linha);
+
+        carregarSabores();
+
+        campoQuantidade.setText(
+                String.valueOf(item.getQuantidade())
+        );
+
+        Forma forma = item.getPizza().getForma();
+
+        double medida;
+        double minimo;
+        double maximo;
+
+        if (forma instanceof Quadrado quadrado) {
+
+            comboForma.setSelectedItem("QUADRADO");
+
+            medida = quadrado.getLado();
+
+            minimo = 10;
+            maximo = 40;
+
+        } else if (forma instanceof Circulo circulo) {
+
+            comboForma.setSelectedItem("CIRCULO");
+
+            medida = circulo.getRaio();
+
+            minimo = 7;
+            maximo = 23;
+
+        } else if (forma instanceof Triangulo triangulo) {
+
+            comboForma.setSelectedItem("TRIANGULO");
+
+            medida = triangulo.getLado();
+
+            minimo = 20;
+            maximo = 60;
+
+        } else {
+
+            throw new CampoInvalidoException(
+                    "Forma inválida."
+            );
+        }
+
+        if (medida >= minimo && medida <= maximo) {
+
+            comboModoEntrada.setSelectedItem("Por dimensão");
+
+            campoValorMedida.setText(
+                    formatarMedida(medida)
+            );
+
+        } else {
+
+            comboModoEntrada.setSelectedItem("Por área");
+
+            double area = forma.calculaArea();
+
+            // Corrige diferenças de precisão próximas aos limites.
+            if (Math.abs(area - 100) < 0.000001) {
+                area = 100;
+            }
+
+            if (Math.abs(area - 1600) < 0.000001) {
+                area = 1600;
+            }
+
+            campoValorMedida.setText(
+                    formatarMedida(area)
+            );
+        }
+
+        List<Sabor> sabores = item.getPizza().getSabor();
+
+        comboSabor1.setSelectedIndex(0);
+        comboSabor2.setSelectedIndex(0);
+
+        if (!sabores.isEmpty()) {
+
+            selecionarSaborPorId(
+                    comboSabor1,
+                    sabores.get(0).getIdSabor()
+            );
+        }
+
+        if (sabores.size() > 1) {
+
+            selecionarSaborPorId(
+                    comboSabor2,
+                    sabores.get(1).getIdSabor()
+            );
+        }
+
+        labelResultadoCalculo.setText(
+                String.format(
+                        "Área calculada: %.2f cm²",
+                        forma.calculaArea()
+                )
+        );
+
+        atualizarTextoAjuda();
+    }
+
+    private void selecionarSaborPorId(
+            JComboBox<Object> combo, int idSabor) {
+
+        for (int i = 0; i < combo.getItemCount(); i++) {
+
+            Object objeto = combo.getItemAt(i);
+
+            if (objeto instanceof Sabor sabor
+                    && sabor.getIdSabor() == idSabor) {
+
+                combo.setSelectedIndex(i);
+
+                return;
+            }
+        }
+
+        throw new SaborInvalidoException(
+                "Sabor do item não encontrado."
+        );
+    }
+
+    // ================= CANCELAR PEDIDO =================
+
+    private void cancelarPedido() {
+
+        validarPedidoSelecionado();
+
+        int opcao = JOptionPane.showConfirmDialog(
+                this,
+                "Deseja cancelar o pedido selecionado?",
+                "Confirmação",
+                JOptionPane.YES_NO_OPTION
+        );
+
+        if (opcao == JOptionPane.YES_OPTION) {
+
+            controller.excluirPedido(
+                    pedidoSelecionado.getIdPedido()
+            );
+
+            pedidoSelecionado = null;
+
+            carregarTabelaPedidos();
+            carregarTabelaItens();
+            atualizarPedidoAtual();
+            limparCamposPizza();
+
+            JOptionPane.showMessageDialog(
+                    this, "Pedido cancelado."
+            );
+        }
+    }
+
+    // ================= FINALIZAR PEDIDO =================
+
+    private void finalizarPedido() {
+
+        validarPedidoSelecionado();
+
+        controller.finalizarPedido(pedidoSelecionado);
+
+        JOptionPane.showMessageDialog(
+                this,
+                "Pedido finalizado. O estado poderá ser "
+                        + "alterado na tela de status."
+        );
+
+        limparClienteEPedidoSelecionado();
+        limparCamposPizza();
+
+        campoTelefoneCliente.setText("");
+
         tabelaClientes.clearSelection();
-        tabelaPedidos.clearSelection();
-        tabelaItens.clearSelection();
 
         carregarTodosClientes();
     }
 
-    private void carregarItemNosCampos() {
-        try {
-            int linha = tabelaItens.getSelectedRow();
-
-            if (linha == -1 || pedidoSelecionado == null) {
-                return;
-            }
-
-            ItemPedido item = pedidoSelecionado.getItens().get(linha);
-
-            campoQuantidade.setText(String.valueOf(item.getQuantidade()));
-            comboModoEntrada.setSelectedItem("Por dimensão");
-
-            Forma forma = item.getPizza().getForma();
-
-            if (forma instanceof Quadrado) {
-                comboForma.setSelectedItem("QUADRADO");
-                campoValorMedida.setText(String.valueOf(((Quadrado) forma).getLado()));
-            } else if (forma instanceof Circulo) {
-                comboForma.setSelectedItem("CIRCULO");
-                campoValorMedida.setText(String.valueOf(((Circulo) forma).getRaio()));
-            } else if (forma instanceof Triangulo) {
-                comboForma.setSelectedItem("TRIANGULO");
-                campoValorMedida.setText(String.valueOf(((Triangulo) forma).getLado()));
-            }
-
-            List<Sabor> sabores = item.getPizza().getSabor();
-
-            if (sabores.size() > 0) {
-                comboSabor1.setSelectedItem(sabores.get(0));
-            }
-
-            if (sabores.size() > 1) {
-                comboSabor2.setSelectedItem(sabores.get(1));
-            } else {
-                comboSabor2.setSelectedIndex(0);
-            }
-
-            labelResultadoCalculo.setText(formatarResultado(
-                    "Resultado: área calculada: " + String.format("%.2f", item.getPizza().calculaArea()) + " cm²"
-            ));
-
-        } catch (CampoInvalidoException | SaborInvalidoException e) {
-            JOptionPane.showMessageDialog(this, e.getMessage());
-        } catch (RuntimeException e) {
-            JOptionPane.showMessageDialog(this, "Erro inesperado ao carregar item nos campos.");
-        }
-    }
+    // ================= ATUALIZAÇÕES =================
 
     private void atualizarTabelasDepoisDeAlterar() {
+
         carregarTabelaPedidos();
 
         if (pedidoSelecionado != null) {
-            selecionarPedidoNaTabela(pedidoSelecionado.getIdPedido());
+
+            selecionarPedidoNaTabela(
+                    pedidoSelecionado.getIdPedido()
+            );
         }
 
         carregarTabelaItens();
         atualizarPedidoAtual();
     }
 
-    private void selecionarPedidoNaTabela(int idPedido) {
-        for (int i = 0; i < modeloPedidos.getRowCount(); i++) {
-            int idAtual = Integer.parseInt(modeloPedidos.getValueAt(i, 0).toString());
-
-            if (idAtual == idPedido) {
-                tabelaPedidos.setRowSelectionInterval(i, i);
-                return;
-            }
-        }
-    }
-
-    private void limparCamposPizza() {
-        comboForma.setSelectedIndex(0);
-        comboModoEntrada.setSelectedIndex(0);
-        campoValorMedida.setText("");
-        campoQuantidade.setText("1");
-        comboSabor1.setSelectedIndex(0);
-        comboSabor2.setSelectedIndex(0);
-        labelResultadoCalculo.setText(formatarResultado("Resultado: -"));
-        tabelaItens.clearSelection();
-        atualizarTextoAjuda();
-    }
-
-    private void limparClienteEPedidoSelecionado() {
-        clienteSelecionado = null;
-        pedidoSelecionado = null;
-
-        labelClienteNome.setText("Cliente selecionado: nenhum");
-        labelClienteTelefone.setText("Telefone: -");
-        labelPedidoAtual.setText("Pedido atual: nenhum pedido selecionado");
-
-        modeloPedidos.setRowCount(0);
-        modeloItens.setRowCount(0);
-        labelTotalPedido.setText("Total do pedido: R$ 0.00");
-    }
-
     private void atualizarPedidoAtual() {
+
         if (pedidoSelecionado == null) {
-            labelPedidoAtual.setText("Pedido atual: nenhum pedido selecionado");
+
+            labelPedidoAtual.setText(
+                    "Pedido atual: nenhum"
+            );
+
         } else {
-            labelPedidoAtual.setText("Pedido atual: #" + pedidoSelecionado.getIdPedido() + " - " + pedidoSelecionado.getEstadoPedido());
+
+            labelPedidoAtual.setText(
+                    "Pedido atual: #"
+                            + pedidoSelecionado.getIdPedido()
+                            + " - "
+                            + pedidoSelecionado.getEstadoPedido()
+            );
         }
     }
 
     private void atualizarTextoAjuda() {
+
         if (entradaPorArea()) {
-            labelAjudaMedida.setText("Informe a área em cm².");
+
+            labelAjudaMedida.setText(
+                    "Informe a área em cm²."
+            );
+
         } else if (obterForma().equals("CIRCULO")) {
-            labelAjudaMedida.setText("Informe o raio do círculo em cm.");
+
+            labelAjudaMedida.setText(
+                    "Informe o raio em cm."
+            );
+
         } else {
-            labelAjudaMedida.setText("Informe o lado em cm.");
+
+            labelAjudaMedida.setText(
+                    "Informe o lado em cm."
+            );
         }
     }
 
+    // ================= LIMPEZA =================
+
+    private void limparCamposPizza() {
+
+        comboForma.setSelectedIndex(0);
+        comboModoEntrada.setSelectedIndex(0);
+
+        campoValorMedida.setText("");
+        campoQuantidade.setText("1");
+
+        comboSabor1.setSelectedIndex(0);
+        comboSabor2.setSelectedIndex(0);
+
+        labelResultadoCalculo.setText("Resultado: -");
+
+        tabelaItens.clearSelection();
+
+        atualizarTextoAjuda();
+    }
+
+    private void limparClienteEPedidoSelecionado() {
+
+        clienteSelecionado = null;
+        pedidoSelecionado = null;
+
+        labelClienteNome.setText(
+                "Cliente selecionado: nenhum"
+        );
+
+        labelClienteTelefone.setText("Telefone: -");
+
+        modeloPedidos.setRowCount(0);
+        modeloItens.setRowCount(0);
+
+        labelTotalPedido.setText(
+                "Total do pedido: R$ 0,00"
+        );
+
+        atualizarPedidoAtual();
+    }
+
+    // ================= MÉTODOS AUXILIARES =================
+
     private String montarSabores(ItemPedido item) {
-        String texto = "";
 
         List<Sabor> sabores = item.getPizza().getSabor();
 
+        String texto = "";
+
         for (int i = 0; i < sabores.size(); i++) {
+
             texto += sabores.get(i).getNome();
 
             if (i < sabores.size() - 1) {
@@ -1033,71 +1290,153 @@ public class TelaPedido extends JFrame {
         return texto;
     }
 
-    private String formatarResultado(String texto) {
-        return "<html><body style='width: 210px'>" + texto + "</body></html>";
+    private String formatarPreco(java.math.BigDecimal valor) {
+
+        return String.format(
+                java.util.Locale.forLanguageTag("pt-BR"),
+                "R$ %.2f",
+                valor
+        );
     }
 
     private String obterForma() {
+
         return comboForma.getSelectedItem().toString();
     }
 
     private boolean entradaPorArea() {
-        return comboModoEntrada.getSelectedItem().toString().equals("Por área");
+
+        return "Por área".equals(
+                comboModoEntrada.getSelectedItem()
+        );
     }
 
     private Sabor obterSabor1() {
-        Object item = comboSabor1.getSelectedItem();
 
-        if (!(item instanceof Sabor)) {
-            throw new CampoInvalidoException("Selecione o primeiro sabor.");
+        Object objeto = comboSabor1.getSelectedItem();
+
+        if (!(objeto instanceof Sabor)) {
+
+            throw new CampoInvalidoException(
+                    "Selecione o primeiro sabor."
+            );
         }
 
-        return (Sabor) item;
+        return (Sabor) objeto;
     }
 
     private Sabor obterSabor2() {
-        Object item = comboSabor2.getSelectedItem();
 
-        if (item instanceof Sabor) {
-            return (Sabor) item;
+        Object objeto = comboSabor2.getSelectedItem();
+
+        if (objeto instanceof Sabor sabor) {
+            return sabor;
         }
 
         return null;
     }
 
     private double converterDouble(String texto) {
-        try {
-            if (texto == null || texto.isBlank()) {
-                throw new NumberFormatException();
-            }
 
-            return Double.parseDouble(texto.trim().replace(",", "."));
+        try {
+
+            return Double.parseDouble(
+                    texto.trim().replace(",", ".")
+            );
+
         } catch (NumberFormatException e) {
-            throw new CampoInvalidoException("Digite um número válido.");
+
+            throw new CampoInvalidoException(
+                    "Digite uma medida válida."
+            );
         }
     }
 
     private int converterInteiro(String texto) {
+
         try {
-            if (texto == null || texto.isBlank()) {
-                throw new NumberFormatException();
-            }
 
             return Integer.parseInt(texto.trim());
+
         } catch (NumberFormatException e) {
-            throw new CampoInvalidoException("Digite uma quantidade válida.");
+
+            throw new CampoInvalidoException(
+                    "Digite uma quantidade válida."
+            );
         }
     }
 
+    // ================= VALIDAÇÕES DA TELA =================
+
     private void validarClienteSelecionado() {
+
         if (clienteSelecionado == null) {
-            throw new CampoInvalidoException("Selecione um cliente primeiro.");
+
+            throw new CampoInvalidoException(
+                    "Selecione um cliente primeiro."
+            );
         }
     }
 
     private void validarPedidoSelecionado() {
+
         if (pedidoSelecionado == null) {
-            throw new CampoInvalidoException("Selecione ou crie um pedido primeiro.");
+
+            throw new CampoInvalidoException(
+                    "Selecione ou crie um pedido primeiro."
+            );
         }
     }
+
+    // ================= TRATAMENTO DE ERROS =================
+
+    private void executarAcao(Runnable acao) {
+
+        try {
+
+            acao.run();
+
+        } catch (CampoInvalidoException |
+                 ClienteNaoEncontradoException |
+                 SaborInvalidoException e) {
+
+            JOptionPane.showMessageDialog(
+                    this,
+                    e.getMessage(),
+                    "Atenção",
+                    JOptionPane.WARNING_MESSAGE
+            );
+
+        } catch (PersistenciaException e) {
+
+            e.printStackTrace();
+
+            JOptionPane.showMessageDialog(
+                    this,
+                    e.getMessage(),
+                    "Erro de persistência",
+                    JOptionPane.ERROR_MESSAGE
+            );
+
+        } catch (RuntimeException e) {
+
+            e.printStackTrace();
+
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Ocorreu um erro inesperado.",
+                    "Erro",
+                    JOptionPane.ERROR_MESSAGE
+            );
+        }
+    }
+
+    private String formatarMedida(double valor) {
+
+        return BigDecimal.valueOf(valor)
+                .setScale(8, RoundingMode.HALF_UP)
+                .stripTrailingZeros()
+                .toPlainString();
+    }
+
 }

@@ -20,7 +20,10 @@ public class Circulo extends Forma{
     }
 
     @Override
-    public String descricao(){
-        return "Circulo - Raio de: " + raio;
+    public String descricao() {
+
+        return String.format(
+                "Círculo - Raio de: %.2f", raio
+        );
     }
 }
