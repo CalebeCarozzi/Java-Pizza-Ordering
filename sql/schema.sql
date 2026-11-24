@@ -1,8 +1,13 @@
+-- Cria o banco sem apagar dados existentes.
+CREATE DATABASE IF NOT EXISTS PizzaOrdering
+    CHARACTER SET utf8mb4
+    COLLATE utf8mb4_unicode_ci;
+
 USE PizzaOrdering;
 
 -- TABELA DE CLIENTES
 
-CREATE TABLE cliente (
+CREATE TABLE IF NOT EXISTS cliente (
                          id INT AUTO_INCREMENT PRIMARY KEY,
                          nome VARCHAR(100) NOT NULL,
                          sobrenome VARCHAR(100) NOT NULL,
@@ -11,7 +16,7 @@ CREATE TABLE cliente (
 
 -- TABELA DE TIPOS E PREÇOS
 
-CREATE TABLE tipo_pizza (
+CREATE TABLE IF NOT EXISTS tipo_pizza (
                             tipo VARCHAR(10) PRIMARY KEY,
                             preco_cm2 DECIMAL(10,4) NOT NULL,
 
@@ -24,7 +29,7 @@ CREATE TABLE tipo_pizza (
 
 -- TABELA DE SABORES
 
-CREATE TABLE sabor (
+CREATE TABLE IF NOT EXISTS sabor (
                        id INT AUTO_INCREMENT PRIMARY KEY,
                        nome VARCHAR(100) NOT NULL UNIQUE,
                        tipo VARCHAR(10) NOT NULL,
@@ -35,7 +40,7 @@ CREATE TABLE sabor (
 
 -- TABELA DE PEDIDOS
 
-CREATE TABLE pedido (
+CREATE TABLE IF NOT EXISTS pedido (
                         id INT AUTO_INCREMENT PRIMARY KEY,
                         cliente_id INT NOT NULL,
                         estado VARCHAR(15) NOT NULL DEFAULT 'ABERTO',
@@ -54,7 +59,7 @@ CREATE TABLE pedido (
 
 -- TABELA DE ITENS DO PEDIDO
 
-CREATE TABLE item_pedido (
+CREATE TABLE IF NOT EXISTS item_pedido (
                              id INT AUTO_INCREMENT PRIMARY KEY,
                              pedido_id INT NOT NULL,
 
@@ -89,10 +94,16 @@ CREATE TABLE item_pedido (
                              CHECK (sabor2_id IS NULL OR sabor1_id <> sabor2_id)
 );
 
--- PREÇOS INICIAIS
+-- PREÇOS INICIAIS: insere apenas tipos ausentes, preservando preços existentes.
 
 INSERT INTO tipo_pizza (tipo, preco_cm2)
-VALUES
-    ('SIMPLES', 0.05),
-    ('ESPECIAL', 0.07),
-    ('PREMIUM', 0.10);
+SELECT 'SIMPLES', 0.05
+WHERE NOT EXISTS (SELECT 1 FROM tipo_pizza WHERE tipo = 'SIMPLES');
+
+INSERT INTO tipo_pizza (tipo, preco_cm2)
+SELECT 'ESPECIAL', 0.07
+WHERE NOT EXISTS (SELECT 1 FROM tipo_pizza WHERE tipo = 'ESPECIAL');
+
+INSERT INTO tipo_pizza (tipo, preco_cm2)
+SELECT 'PREMIUM', 0.10
+WHERE NOT EXISTS (SELECT 1 FROM tipo_pizza WHERE tipo = 'PREMIUM');
