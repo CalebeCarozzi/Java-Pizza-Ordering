@@ -1,34 +1,36 @@
 package view;
 
+import controller.PrecoController;
 import exception.CampoInvalidoException;
+import exception.PersistenciaException;
 import exception.PrecoInvalidoException;
-import model.TipoPizza;
-import service.PrecoService;
+import model.TabelaPreco;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
+import java.util.Locale;
 
 public class TelaPreco extends JFrame {
 
-    private PrecoService precoService;
+    private final PrecoController controller;
 
     private JTextField campoPrecoSimples;
     private JTextField campoPrecoEspecial;
     private JTextField campoPrecoPremium;
 
-    private JButton botaoSalvarPrecos;
-    private JButton botaoLimparCampos;
-    private JButton botaoVoltar;
-
     private JLabel labelPrecoSimplesAtual;
     private JLabel labelPrecoEspecialAtual;
     private JLabel labelPrecoPremiumAtual;
 
-    public TelaPreco(PrecoService precoService) {
-        this.precoService = precoService;
+    private JButton botaoSalvarPrecos;
+    private JButton botaoLimparCampos;
+    private JButton botaoVoltar;
+
+    public TelaPreco(PrecoController controller) {
+
+        this.controller = controller;
 
         configurarJanela();
         inicializarComponentes();
@@ -37,48 +39,75 @@ public class TelaPreco extends JFrame {
         carregarPrecos();
     }
 
+    // ================= JANELA =================
+
     private void configurarJanela() {
+
         setTitle("Atualização de Preços");
-        setSize(750, 480);
+        setSize(1050, 650);
+        setMinimumSize(new Dimension(850, 500));
         setLocationRelativeTo(null);
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         setResizable(true);
         setExtendedState(JFrame.MAXIMIZED_BOTH);
     }
 
+    // ================= COMPONENTES =================
+
     private void inicializarComponentes() {
+
         campoPrecoSimples = new JTextField();
         campoPrecoEspecial = new JTextField();
         campoPrecoPremium = new JTextField();
 
-        campoPrecoSimples.setPreferredSize(new Dimension(0, 30));
-        campoPrecoEspecial.setPreferredSize(new Dimension(0, 30));
-        campoPrecoPremium.setPreferredSize(new Dimension(0, 30));
+        labelPrecoSimplesAtual = new JLabel();
+        labelPrecoEspecialAtual = new JLabel();
+        labelPrecoPremiumAtual = new JLabel();
 
         botaoSalvarPrecos = new JButton("Salvar preços");
         botaoLimparCampos = new JButton("Limpar campos");
         botaoVoltar = new JButton("Voltar");
 
-        labelPrecoSimplesAtual = new JLabel("Preço atual da pizza simples: R$ 0.00 por centímetro quadrado");
-        labelPrecoEspecialAtual = new JLabel("Preço atual da pizza especial: R$ 0.00 por centímetro quadrado");
-        labelPrecoPremiumAtual = new JLabel("Preço atual da pizza premium: R$ 0.00 por centímetro quadrado");
+        Font fonte = new Font("Arial", Font.BOLD, 14);
 
-        labelPrecoSimplesAtual.setFont(new Font("Arial", Font.BOLD, 14));
-        labelPrecoEspecialAtual.setFont(new Font("Arial", Font.BOLD, 14));
-        labelPrecoPremiumAtual.setFont(new Font("Arial", Font.BOLD, 14));
+        labelPrecoSimplesAtual.setFont(fonte);
+        labelPrecoEspecialAtual.setFont(fonte);
+        labelPrecoPremiumAtual.setFont(fonte);
     }
 
+    // ================= LAYOUT =================
+
     private void montarLayout() {
-        JPanel painelPrincipal = new JPanel(new GridBagLayout());
-        painelPrincipal.setBorder(new EmptyBorder(20, 20, 20, 20));
 
-        JPanel painelConteudo = new JPanel(new BorderLayout(15, 15));
-        painelConteudo.setPreferredSize(new Dimension(1050, 560));
-        painelConteudo.setBorder(new EmptyBorder(20, 20, 20, 20));
+        JPanel painelPrincipal =
+                new JPanel(new GridBagLayout());
 
-        painelConteudo.add(criarPainelTopo(), BorderLayout.NORTH);
-        painelConteudo.add(criarPainelCentral(), BorderLayout.CENTER);
-        painelConteudo.add(criarPainelRodape(), BorderLayout.SOUTH);
+        painelPrincipal.setBorder(
+                new EmptyBorder(20, 20, 20, 20)
+        );
+
+        JPanel painelConteudo =
+                new JPanel(new BorderLayout(15, 15));
+
+        painelConteudo.setPreferredSize(
+                new Dimension(1050, 560)
+        );
+
+        painelConteudo.setBorder(
+                new EmptyBorder(20, 20, 20, 20)
+        );
+
+        painelConteudo.add(
+                criarPainelTopo(), BorderLayout.NORTH
+        );
+
+        painelConteudo.add(
+                criarPainelCentral(), BorderLayout.CENTER
+        );
+
+        painelConteudo.add(
+                criarPainelRodape(), BorderLayout.SOUTH
+        );
 
         painelPrincipal.add(painelConteudo);
 
@@ -86,109 +115,119 @@ public class TelaPreco extends JFrame {
     }
 
     private JPanel criarPainelTopo() {
-        JPanel painelTopo = new JPanel(new BorderLayout());
+
+        JPanel painel = new JPanel(new BorderLayout());
 
         JLabel titulo = new JLabel("Atualização de Preços");
-        titulo.setFont(new Font("Arial", Font.BOLD, 26));
 
-        JLabel subtitulo = new JLabel("Defina o preço por centímetro quadrado para cada tipo de pizza");
-        subtitulo.setFont(new Font("Arial", Font.PLAIN, 14));
+        titulo.setFont(
+                new Font("Arial", Font.BOLD, 26)
+        );
+
+        JLabel subtitulo = new JLabel(
+                "Defina o preço por centímetro quadrado para cada tipo de pizza"
+        );
 
         JPanel painelTextos = new JPanel();
-        painelTextos.setLayout(new BoxLayout(painelTextos, BoxLayout.Y_AXIS));
+
+        painelTextos.setLayout(
+                new BoxLayout(painelTextos, BoxLayout.Y_AXIS)
+        );
+
         painelTextos.add(titulo);
         painelTextos.add(Box.createVerticalStrut(6));
         painelTextos.add(subtitulo);
 
-        painelTopo.add(painelTextos, BorderLayout.WEST);
+        painel.add(painelTextos, BorderLayout.WEST);
 
-        return painelTopo;
+        return painel;
     }
 
     private JPanel criarPainelCentral() {
-        JPanel painelCentral = new JPanel(new BorderLayout(15, 0));
 
-        painelCentral.add(criarPainelFormulario(), BorderLayout.CENTER);
-        painelCentral.add(criarPainelAcoes(), BorderLayout.EAST);
+        JPanel painel =
+                new JPanel(new BorderLayout(15, 0));
 
-        return painelCentral;
+        painel.add(
+                criarPainelFormulario(), BorderLayout.CENTER
+        );
+
+        painel.add(
+                criarPainelAcoes(), BorderLayout.EAST
+        );
+
+        return painel;
     }
 
     private JPanel criarPainelFormulario() {
-        JPanel painelFormulario = new JPanel(new GridLayout(3, 1, 0, 15));
 
-        painelFormulario.add(criarPainelPrecoSimples());
-        painelFormulario.add(criarPainelPrecoEspecial());
-        painelFormulario.add(criarPainelPrecoPremium());
+        JPanel painel =
+                new JPanel(new GridLayout(3, 1, 0, 15));
 
-        return painelFormulario;
-    }
+        painel.add(
+                criarPainelPreco(
+                        "Pizza Simples",
+                        campoPrecoSimples,
+                        labelPrecoSimplesAtual,
+                        "0,05"
+                )
+        );
 
-    private JPanel criarPainelPrecoSimples() {
-        JPanel painel = new JPanel(new BorderLayout(10, 10));
-        painel.setBorder(BorderFactory.createTitledBorder("Pizza Simples"));
+        painel.add(
+                criarPainelPreco(
+                        "Pizza Especial",
+                        campoPrecoEspecial,
+                        labelPrecoEspecialAtual,
+                        "0,07"
+                )
+        );
 
-        JLabel labelDescricao = new JLabel("Preço por cm²:");
-        JLabel labelExemplo = new JLabel("Exemplo: 0.05");
-        labelExemplo.setFont(new Font("Arial", Font.PLAIN, 12));
-
-        JPanel painelCampo = new JPanel(new BorderLayout(8, 8));
-        painelCampo.add(labelDescricao, BorderLayout.WEST);
-        painelCampo.add(campoPrecoSimples, BorderLayout.CENTER);
-
-        JPanel painelInfo = new JPanel();
-        painelInfo.setLayout(new BoxLayout(painelInfo, BoxLayout.Y_AXIS));
-        painelInfo.add(labelPrecoSimplesAtual);
-        painelInfo.add(Box.createVerticalStrut(4));
-        painelInfo.add(labelExemplo);
-
-        painel.add(painelCampo, BorderLayout.NORTH);
-        painel.add(painelInfo, BorderLayout.SOUTH);
-
-        return painel;
-    }
-
-    private JPanel criarPainelPrecoEspecial() {
-        JPanel painel = new JPanel(new BorderLayout(10, 10));
-        painel.setBorder(BorderFactory.createTitledBorder("Pizza Especial"));
-
-        JLabel labelDescricao = new JLabel("Preço por cm²:");
-        JLabel labelExemplo = new JLabel("Exemplo: 0.07");
-        labelExemplo.setFont(new Font("Arial", Font.PLAIN, 12));
-
-        JPanel painelCampo = new JPanel(new BorderLayout(8, 8));
-        painelCampo.add(labelDescricao, BorderLayout.WEST);
-        painelCampo.add(campoPrecoEspecial, BorderLayout.CENTER);
-
-        JPanel painelInfo = new JPanel();
-        painelInfo.setLayout(new BoxLayout(painelInfo, BoxLayout.Y_AXIS));
-        painelInfo.add(labelPrecoEspecialAtual);
-        painelInfo.add(Box.createVerticalStrut(4));
-        painelInfo.add(labelExemplo);
-
-        painel.add(painelCampo, BorderLayout.NORTH);
-        painel.add(painelInfo, BorderLayout.SOUTH);
+        painel.add(
+                criarPainelPreco(
+                        "Pizza Premium",
+                        campoPrecoPremium,
+                        labelPrecoPremiumAtual,
+                        "0,10"
+                )
+        );
 
         return painel;
     }
 
-    private JPanel criarPainelPrecoPremium() {
-        JPanel painel = new JPanel(new BorderLayout(10, 10));
-        painel.setBorder(BorderFactory.createTitledBorder("Pizza Premium"));
+    private JPanel criarPainelPreco(
+            String titulo,
+            JTextField campo,
+            JLabel labelPrecoAtual,
+            String exemplo) {
 
-        JLabel labelDescricao = new JLabel("Preço por cm²:");
-        JLabel labelExemplo = new JLabel("Exemplo: 0.10");
-        labelExemplo.setFont(new Font("Arial", Font.PLAIN, 12));
+        JPanel painel =
+                new JPanel(new BorderLayout(10, 10));
 
-        JPanel painelCampo = new JPanel(new BorderLayout(8, 8));
-        painelCampo.add(labelDescricao, BorderLayout.WEST);
-        painelCampo.add(campoPrecoPremium, BorderLayout.CENTER);
+        painel.setBorder(
+                BorderFactory.createTitledBorder(titulo)
+        );
+
+        JPanel painelCampo =
+                new JPanel(new BorderLayout(8, 8));
+
+        painelCampo.add(
+                new JLabel("Preço por cm²:"),
+                BorderLayout.WEST
+        );
+
+        painelCampo.add(
+                campo, BorderLayout.CENTER
+        );
 
         JPanel painelInfo = new JPanel();
-        painelInfo.setLayout(new BoxLayout(painelInfo, BoxLayout.Y_AXIS));
-        painelInfo.add(labelPrecoPremiumAtual);
+
+        painelInfo.setLayout(
+                new BoxLayout(painelInfo, BoxLayout.Y_AXIS)
+        );
+
+        painelInfo.add(labelPrecoAtual);
         painelInfo.add(Box.createVerticalStrut(4));
-        painelInfo.add(labelExemplo);
+        painelInfo.add(new JLabel("Exemplo: " + exemplo));
 
         painel.add(painelCampo, BorderLayout.NORTH);
         painel.add(painelInfo, BorderLayout.SOUTH);
@@ -197,146 +236,169 @@ public class TelaPreco extends JFrame {
     }
 
     private JPanel criarPainelAcoes() {
-        JPanel painelAcoes = new JPanel(new BorderLayout());
-        painelAcoes.setBorder(BorderFactory.createTitledBorder("Ações"));
-        painelAcoes.setPreferredSize(new Dimension(180, 0));
 
-        JPanel painelBotoes = new JPanel(new GridLayout(3, 1, 0, 10));
-        painelBotoes.setPreferredSize(new Dimension(160, 150));
+        JPanel painel =
+                new JPanel(new BorderLayout());
+
+        painel.setBorder(
+                BorderFactory.createTitledBorder("Ações")
+        );
+
+        painel.setPreferredSize(
+                new Dimension(180, 0)
+        );
+
+        JPanel painelBotoes =
+                new JPanel(new GridLayout(3, 1, 0, 10));
+
+        painelBotoes.setPreferredSize(
+                new Dimension(160, 150)
+        );
 
         painelBotoes.add(botaoSalvarPrecos);
         painelBotoes.add(botaoLimparCampos);
         painelBotoes.add(botaoVoltar);
 
-        painelAcoes.add(painelBotoes, BorderLayout.NORTH);
+        painel.add(painelBotoes, BorderLayout.NORTH);
 
-        return painelAcoes;
+        return painel;
     }
 
     private JPanel criarPainelRodape() {
-        JPanel painelRodape = new JPanel(new BorderLayout());
 
-        JLabel mensagem = new JLabel("Digite valores usando ponto ou vírgula para casas decimais. Exemplo: 0.05 ou 0,05");
+        JPanel painel = new JPanel(new BorderLayout());
 
-        painelRodape.add(mensagem, BorderLayout.WEST);
-
-        return painelRodape;
-    }
-
-
-    //METODOS PARA A LOGICA DA TELA E INTEGRACAO -------------------------------------------------
-
-    public void configurarEventos(){
-
-        botaoSalvarPrecos.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                salvarPrecos();
-            }
-        });
-
-        botaoLimparCampos.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                limparCampos();
-            }
-        });
-
-        botaoVoltar.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                dispose();
-            }
-        });
-
-        campoPrecoSimples.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                salvarPrecos();
-            }
-        });
-
-        campoPrecoEspecial.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                salvarPrecos();
-            }
-        });
-
-        campoPrecoPremium.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                salvarPrecos();
-            }
-        });
-    }
-
-
-    public void carregarPrecos(){
-
-        labelPrecoSimplesAtual.setText(
-                "Preço atual da pizza simples: R$ " + precoService.getPrecoSimples() + " por centímetro quadrado"
+        JLabel mensagem = new JLabel(
+                "Use ponto ou vírgula. "
+                        + "Deixe os campos que não deseja alterar vazios."
         );
 
-        labelPrecoEspecialAtual.setText(
-                "Preço atual da pizza especial: R$ " + precoService.getPrecoEspecial() + " por centímetro quadrado"
+        painel.add(mensagem, BorderLayout.WEST);
+
+        return painel;
+    }
+
+    // ================= EVENTOS =================
+
+    private void configurarEventos() {
+
+        botaoSalvarPrecos.addActionListener(
+                e -> salvarPrecos()
         );
 
-        labelPrecoPremiumAtual.setText(
-                "Preço atual da pizza premium: R$ " + precoService.getPrecoPremium() + " por centímetro quadrado"
+        botaoLimparCampos.addActionListener(
+                e -> limparCampos()
+        );
+
+        botaoVoltar.addActionListener(
+                e -> dispose()
+        );
+
+        campoPrecoSimples.addActionListener(
+                e -> salvarPrecos()
+        );
+
+        campoPrecoEspecial.addActionListener(
+                e -> salvarPrecos()
+        );
+
+        campoPrecoPremium.addActionListener(
+                e -> salvarPrecos()
         );
     }
 
-    public void salvarPrecos(){
+    // ================= CONSULTAR =================
+
+    private void carregarPrecos() {
+
         try {
 
-            String precoSimplesStr = campoPrecoSimples.getText();
-            String precoEspecialStr = campoPrecoEspecial.getText();
-            String precoPremiumStr = campoPrecoPremium.getText();
+            TabelaPreco tabela =
+                    controller.consultarPrecos();
 
-            if (precoSimplesStr.isBlank() && precoEspecialStr.isBlank() && precoPremiumStr.isBlank()) {
-                throw new CampoInvalidoException("Não pode deixar todos os campos vazios");
-            }
+            labelPrecoSimplesAtual.setText(
+                    formatarPreco(tabela.getPrecoSimples())
+            );
 
-            if (!precoSimplesStr.isBlank()) {
-                double precoSimples = converterPreco(precoSimplesStr);
-                precoService.alterarPreco(TipoPizza.SIMPLES, precoSimples);
-            }
+            labelPrecoEspecialAtual.setText(
+                    formatarPreco(tabela.getPrecoEspecial())
+            );
 
-            if (!precoEspecialStr.isBlank()) {
-                double precoEspecial = converterPreco(precoEspecialStr);
-                precoService.alterarPreco(TipoPizza.ESPECIAL, precoEspecial);
-            }
+            labelPrecoPremiumAtual.setText(
+                    formatarPreco(tabela.getPrecoPremium())
+            );
 
-            if (!precoPremiumStr.isBlank()) {
-                double precoPremium = converterPreco(precoPremiumStr);
-                precoService.alterarPreco(TipoPizza.PREMIUM, precoPremium);
-            }
+        } catch (PersistenciaException e) {
 
-            carregarPrecos();
-            limparCampos();
-
-            JOptionPane.showMessageDialog(this, "Preços atualizados com sucesso.");
-
-        }catch (CampoInvalidoException | PrecoInvalidoException e){
-            JOptionPane.showMessageDialog(this, e.getMessage());
+            tratarErroPersistencia(e);
         }
     }
 
-    public double converterPreco(String texto) {
-        try {
-            texto = texto.trim().replace(",", ".");
+    // ================= SALVAR =================
 
-            return Double.parseDouble(texto);
-        } catch (NumberFormatException e) {
-            throw new CampoInvalidoException("Digite um preço válido. Exemplo: 0.05 ou 0,05");
+    private void salvarPrecos() {
+
+        try {
+
+            controller.atualizarPrecos(
+                    campoPrecoSimples.getText(),
+                    campoPrecoEspecial.getText(),
+                    campoPrecoPremium.getText()
+            );
+
+        } catch (CampoInvalidoException |
+                 PrecoInvalidoException e) {
+
+            exibirErro(e.getMessage());
+            return;
+
+        } catch (PersistenciaException e) {
+
+            tratarErroPersistencia(e);
+            return;
         }
+
+        limparCampos();
+        carregarPrecos();
+
+        JOptionPane.showMessageDialog(
+                this,
+                "Preços atualizados com sucesso."
+        );
     }
 
-    public void limparCampos(){
+    // ================= AUXILIARES =================
+
+    private String formatarPreco(double preco) {
+
+        return String.format(
+                Locale.forLanguageTag("pt-BR"),
+                "Preço atual: R$ %.4f por cm²",
+                preco
+        );
+    }
+
+    private void limparCampos() {
+
         campoPrecoSimples.setText("");
         campoPrecoEspecial.setText("");
         campoPrecoPremium.setText("");
     }
 
+    private void exibirErro(String mensagem) {
+
+        JOptionPane.showMessageDialog(
+                this,
+                mensagem,
+                "Erro",
+                JOptionPane.ERROR_MESSAGE
+        );
+    }
+
+    private void tratarErroPersistencia(
+            PersistenciaException e) {
+
+        e.printStackTrace();
+        exibirErro(e.getMessage());
+    }
 }

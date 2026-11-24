@@ -2,9 +2,10 @@ package view;
 
 import controller.ClienteController;
 import controller.SaborController;
+import controller.PrecoController;
+
 import service.ClienteService;
 import service.PedidoService;
-import service.PrecoService;
 import service.SaborService;
 
 import javax.swing.*;
@@ -16,11 +17,11 @@ public class TelaPrincipal extends JFrame {
 
     private final ClienteController clienteController;
     private final SaborController saborController;
+    private final PrecoController precoController;
 
-    // Dependências temporárias dos módulos antigos.
+    // Dependências temporárias da tela de pedidos.
     private final ClienteService clienteService;
     private final SaborService saborService;
-    private final PrecoService precoService;
     private final PedidoService pedidoService;
 
     private JButton botaoPedidos;
@@ -33,17 +34,17 @@ public class TelaPrincipal extends JFrame {
     public TelaPrincipal(
             ClienteController clienteController,
             SaborController saborController,
+            PrecoController precoController,
             ClienteService clienteService,
             SaborService saborService,
-            PrecoService precoService,
             PedidoService pedidoService) {
 
         this.clienteController = clienteController;
         this.saborController = saborController;
+        this.precoController = precoController;
 
         this.clienteService = clienteService;
         this.saborService = saborService;
-        this.precoService = precoService;
         this.pedidoService = pedidoService;
 
         configurarJanela();
@@ -165,46 +166,46 @@ public class TelaPrincipal extends JFrame {
 
     private void abrirTelaClientes() {
 
-        TelaCliente telaCliente =
+        TelaCliente tela =
                 new TelaCliente(clienteController);
 
-        telaCliente.setVisible(true);
+        tela.setVisible(true);
     }
 
     private void abrirTelaSabores() {
 
-        TelaSabor telaSabor =
+        TelaSabor tela =
                 new TelaSabor(saborController);
 
-        telaSabor.setVisible(true);
+        tela.setVisible(true);
+    }
+
+    private void abrirTelaPrecos() {
+
+        TelaPreco tela =
+                new TelaPreco(precoController);
+
+        tela.setVisible(true);
     }
 
     private void abrirTelaPedidos() {
 
-        TelaPedido telaPedido =
+        TelaPedido tela =
                 new TelaPedido(
                         clienteService,
                         saborService,
                         pedidoService
                 );
 
-        telaPedido.setVisible(true);
-    }
-
-    private void abrirTelaPrecos() {
-
-        TelaPreco telaPreco =
-                new TelaPreco(precoService);
-
-        telaPreco.setVisible(true);
+        tela.setVisible(true);
     }
 
     private void abrirTelaStatusPedidos() {
 
-        TelaStatusPedido telaStatusPedido =
+        TelaStatusPedido tela =
                 new TelaStatusPedido(pedidoService);
 
-        telaStatusPedido.setVisible(true);
+        tela.setVisible(true);
     }
 
     // ================= SAIR =================
